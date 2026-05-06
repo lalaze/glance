@@ -91,6 +91,19 @@ func (widget *cliproxyQuotaWidget) PollIntervalMilliseconds() int64 {
 	return time.Duration(widget.PollInterval).Milliseconds()
 }
 
+func (widget *cliproxyQuotaWidget) TotalAccount() *cliproxyQuotaAccount {
+	windows := aggregateCliproxyQuotaWindows(widget.Accounts)
+	if len(windows) == 0 {
+		return nil
+	}
+
+	return &cliproxyQuotaAccount{
+		Name:    "All accounts",
+		Plan:    "Total",
+		Windows: windows,
+	}
+}
+
 type cliproxyAuthFilesResponse struct {
 	Files []cliproxyAuthFile `json:"files"`
 }
@@ -144,6 +157,7 @@ type cliproxyQuotaWindow struct {
 	Label            string
 	RemainingPercent *float64
 	ResetLabel       string
+	ResetAt          *time.Time
 }
 
 func newCliproxyQuotaHTTPClient(timeout time.Duration, allowInsecure bool) *http.Client {
@@ -513,7 +527,8 @@ func appendCliproxyQuotaWindow(windows []cliproxyQuotaWindow, id, label string, 
 		return windows
 	}
 
-	resetLabel := formatCliproxyQuotaReset(window)
+	resetAt := cliproxyQuotaResetAt(window)
+	resetLabel := formatCliproxyQuotaResetTime(resetAt)
 	remainingPercent := cliproxyRemainingPercent(window, rateLimit, resetLabel)
 
 	return append(windows, cliproxyQuotaWindow{
@@ -521,7 +536,87 @@ func appendCliproxyQuotaWindow(windows []cliproxyQuotaWindow, id, label string, 
 		Label:            label,
 		RemainingPercent: remainingPercent,
 		ResetLabel:       resetLabel,
+		ResetAt:          resetAt,
 	})
+}
+
+func aggregateCliproxyQuotaWindows(accounts []cliproxyQuotaAccount) []cliproxyQuotaWindow {
+	type aggregate struct {
+		label      string
+		sum        float64
+		count      int
+		resetAt    *time.Time
+		resetLabel string
+	}
+
+	aggregates := make(map[string]*aggregate)
+	order := make([]string, 0)
+
+	for _, account := range accounts {
+		for _, window := range account.Windows {
+			id := strings.TrimSpace(window.ID)
+			if id == "" {
+				continue
+			}
+
+			windowAggregate := aggregates[id]
+			if windowAggregate == nil {
+				windowAggregate = &aggregate{
+					label:      window.Label,
+					resetLabel: "-",
+				}
+				aggregates[id] = windowAggregate
+				order = append(order, id)
+			}
+
+			if windowAggregate.label == "" {
+				windowAggregate.label = window.Label
+			}
+
+			if window.RemainingPercent != nil {
+				windowAggregate.sum += math.Max(0, math.Min(100, *window.RemainingPercent))
+				windowAggregate.count++
+			}
+
+			if window.ResetAt != nil {
+				resetAt := *window.ResetAt
+				if windowAggregate.resetAt == nil || resetAt.Before(*windowAggregate.resetAt) {
+					windowAggregate.resetAt = &resetAt
+				}
+			} else if windowAggregate.resetLabel == "-" && strings.TrimSpace(window.ResetLabel) != "" {
+				windowAggregate.resetLabel = window.ResetLabel
+			}
+		}
+	}
+
+	windows := make([]cliproxyQuotaWindow, 0, len(order))
+	for _, id := range order {
+		windowAggregate := aggregates[id]
+		if windowAggregate == nil {
+			continue
+		}
+
+		var remainingPercent *float64
+		if windowAggregate.count > 0 {
+			remaining := windowAggregate.sum / float64(windowAggregate.count)
+			remainingPercent = &remaining
+		}
+
+		resetLabel := windowAggregate.resetLabel
+		if windowAggregate.resetAt != nil {
+			resetLabel = formatCliproxyQuotaResetTime(windowAggregate.resetAt)
+		}
+
+		windows = append(windows, cliproxyQuotaWindow{
+			ID:               id,
+			Label:            windowAggregate.label,
+			RemainingPercent: remainingPercent,
+			ResetLabel:       resetLabel,
+			ResetAt:          windowAggregate.resetAt,
+		})
+	}
+
+	return windows
 }
 
 func cliproxyRemainingPercent(window map[string]any, rateLimit map[string]any, resetLabel string) *float64 {
@@ -542,19 +637,33 @@ func cliproxyRemainingPercent(window map[string]any, rateLimit map[string]any, r
 }
 
 func formatCliproxyQuotaReset(window map[string]any) string {
+	return formatCliproxyQuotaResetTime(cliproxyQuotaResetAt(window))
+}
+
+func cliproxyQuotaResetAt(window map[string]any) *time.Time {
 	if window == nil {
-		return "-"
+		return nil
 	}
 
 	if resetAt, ok := cliproxyFloatValue(window, "reset_at", "resetAt"); ok && resetAt > 0 {
-		return time.Unix(int64(resetAt), 0).Format("01-02 15:04")
+		t := time.Unix(int64(resetAt), 0)
+		return &t
 	}
 
 	if resetAfter, ok := cliproxyFloatValue(window, "reset_after_seconds", "resetAfterSeconds"); ok && resetAfter > 0 {
-		return time.Now().Add(time.Duration(resetAfter) * time.Second).Format("01-02 15:04")
+		t := time.Now().Add(time.Duration(resetAfter) * time.Second)
+		return &t
 	}
 
-	return "-"
+	return nil
+}
+
+func formatCliproxyQuotaResetTime(resetAt *time.Time) string {
+	if resetAt == nil {
+		return "-"
+	}
+
+	return resetAt.Format("01-02 15:04")
 }
 
 func (window cliproxyQuotaWindow) PercentLabel() string {

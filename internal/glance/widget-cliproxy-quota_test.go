@@ -81,6 +81,57 @@ func TestParseCliproxyCodexQuotaWindows(t *testing.T) {
 	assertWindow("gpt-5-secondary", "50%")
 }
 
+func TestCliproxyQuotaWidgetTotalAccountAveragesAccountWindows(t *testing.T) {
+	fiveHourFirst := 93.0
+	fiveHourSecond := 91.0
+	weeklyFirst := 67.0
+	widget := &cliproxyQuotaWidget{
+		Accounts: []cliproxyQuotaAccount{
+			{
+				Name: "first@example.com",
+				Windows: []cliproxyQuotaWindow{
+					{ID: "five-hour", Label: "5-hour limit", RemainingPercent: &fiveHourFirst, ResetLabel: "05-06 21:20"},
+					{ID: "weekly", Label: "Weekly limit", RemainingPercent: &weeklyFirst, ResetLabel: "05-12 07:21"},
+				},
+			},
+			{
+				Name: "second@example.com",
+				Windows: []cliproxyQuotaWindow{
+					{ID: "five-hour", Label: "5-hour limit", RemainingPercent: &fiveHourSecond, ResetLabel: "05-06 21:13"},
+					{ID: "weekly", Label: "Weekly limit", ResetLabel: "-"},
+				},
+			},
+		},
+	}
+
+	total := widget.TotalAccount()
+	if total == nil {
+		t.Fatal("expected a total account")
+	}
+	if total.Name != "All accounts" {
+		t.Fatalf("expected total account name, got %q", total.Name)
+	}
+	if total.Plan != "Total" {
+		t.Fatalf("expected total account plan, got %q", total.Plan)
+	}
+	if len(total.Windows) != 2 {
+		t.Fatalf("expected 2 total windows, got %d", len(total.Windows))
+	}
+
+	if total.Windows[0].ID != "five-hour" {
+		t.Fatalf("expected first total window to keep account window order, got %q", total.Windows[0].ID)
+	}
+	if total.Windows[0].PercentLabel() != "92%" {
+		t.Fatalf("expected averaged five-hour percent to be 92%%, got %s", total.Windows[0].PercentLabel())
+	}
+	if total.Windows[1].ID != "weekly" {
+		t.Fatalf("expected second total window to be weekly, got %q", total.Windows[1].ID)
+	}
+	if total.Windows[1].PercentLabel() != "67%" {
+		t.Fatalf("expected weekly percent to ignore unknown account values, got %s", total.Windows[1].PercentLabel())
+	}
+}
+
 func TestCliproxyQuotaWidgetFetchesCodexQuota(t *testing.T) {
 	apiCalls := 0
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -360,6 +411,48 @@ func TestCliproxyQuotaWidgetRenderIncludesPollingIntervalWhenConfigured(t *testi
 
 	if !strings.Contains(rendered, `data-poll-interval="900000"`) {
 		t.Fatalf("expected rendered widget to include 15m polling interval in milliseconds: %s", rendered)
+	}
+}
+
+func TestCliproxyQuotaWidgetRenderDefaultsToTotalViewForMultipleAccounts(t *testing.T) {
+	fiveHourFirst := 93.0
+	fiveHourSecond := 91.0
+	widget := &cliproxyQuotaWidget{
+		Accounts: []cliproxyQuotaAccount{
+			{
+				Name: "first@example.com",
+				Plan: "Team",
+				Windows: []cliproxyQuotaWindow{
+					{ID: "five-hour", Label: "5-hour limit", RemainingPercent: &fiveHourFirst, ResetLabel: "05-06 21:20"},
+				},
+			},
+			{
+				Name: "second@example.com",
+				Plan: "Team",
+				Windows: []cliproxyQuotaWindow{
+					{ID: "five-hour", Label: "5-hour limit", RemainingPercent: &fiveHourSecond, ResetLabel: "05-06 21:13"},
+				},
+			},
+		},
+	}
+	widget.setID(42)
+	widget.ContentAvailable = true
+
+	rendered := string(widget.Render())
+
+	for _, expected := range []string{
+		`data-cliproxy-quota-view-option="total"`,
+		`data-cliproxy-quota-view-option="accounts"`,
+		`data-cliproxy-quota-view="total"`,
+		`data-cliproxy-quota-view="accounts" hidden`,
+		`All accounts`,
+		`Total`,
+		`first@example.com`,
+		`second@example.com`,
+	} {
+		if !strings.Contains(rendered, expected) {
+			t.Fatalf("expected rendered widget to contain %q: %s", expected, rendered)
+		}
 	}
 }
 

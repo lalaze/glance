@@ -6,41 +6,64 @@
 {{ if eq (len .Accounts) 0 }}
 <div class="cliproxy-quota-empty color-subdue">No active Codex credentials found.</div>
 {{ else }}
+{{ $totalAccount := .TotalAccount }}
+{{ $showToggle := and $totalAccount (gt (len .Accounts) 1) }}
+{{ if $showToggle }}
+<div class="cliproxy-quota-toolbar">
+    <div class="cliproxy-quota-view-options" role="group" aria-label="Quota view">
+        <button class="cliproxy-quota-view-option" type="button" data-cliproxy-quota-view-option="total" aria-pressed="true">Total</button>
+        <button class="cliproxy-quota-view-option" type="button" data-cliproxy-quota-view-option="accounts" aria-pressed="false">Accounts</button>
+    </div>
+</div>
+<div class="cliproxy-quota-view" data-cliproxy-quota-view="total">
+    <div class="cliproxy-quota-accounts">
+        {{ template "cliproxy-quota-account-card" $totalAccount }}
+    </div>
+</div>
+<div class="cliproxy-quota-view" data-cliproxy-quota-view="accounts" hidden>
+{{ end }}
 <div class="cliproxy-quota-accounts">
     {{ range .Accounts }}
-    <div class="cliproxy-quota-account">
-        <div class="cliproxy-quota-account-header">
-            <div class="min-width-0">
-                <div class="cliproxy-quota-account-name color-highlight text-truncate">{{ .Name }}</div>
-            </div>
-            <div class="cliproxy-quota-account-plan text-truncate">{{ if .Plan }}{{ .Plan }}{{ else }}Unknown{{ end }}</div>
-        </div>
-
-        {{ if .Error }}
-        <div class="cliproxy-quota-error color-negative break-all">{{ .Error }}</div>
-        {{ end }}
-
-        {{ if .Windows }}
-        <div class="cliproxy-quota-windows">
-            {{ range .Windows }}
-            <div class="cliproxy-quota-window">
-                <div class="cliproxy-quota-window-header">
-                    <div class="cliproxy-quota-window-label text-truncate">{{ .Label }}</div>
-                    <div class="cliproxy-quota-window-value color-highlight">{{ .PercentLabel }}</div>
-                </div>
-                <div class="progress-bar">
-                    <div class="progress-value {{ .ProgressClass }}" style="--percent: {{ .ProgressValue }}"></div>
-                </div>
-                <div class="cliproxy-quota-window-reset color-subdue">Reset {{ .ResetLabel }}</div>
-            </div>
-            {{ end }}
-        </div>
-        {{ else if not .Error }}
-        <div class="cliproxy-quota-empty color-subdue">No quota data available.</div>
-        {{ end }}
-    </div>
+    {{ template "cliproxy-quota-account-card" . }}
     {{ end }}
 </div>
+{{ if $showToggle }}
+</div>
 {{ end }}
+{{ end }}
+</div>
+{{ end }}
+
+{{ define "cliproxy-quota-account-card" }}
+<div class="cliproxy-quota-account">
+    <div class="cliproxy-quota-account-header">
+        <div class="min-width-0">
+            <div class="cliproxy-quota-account-name color-highlight text-truncate">{{ .Name }}</div>
+        </div>
+        <div class="cliproxy-quota-account-plan text-truncate">{{ if .Plan }}{{ .Plan }}{{ else }}Unknown{{ end }}</div>
+    </div>
+
+    {{ if .Error }}
+    <div class="cliproxy-quota-error color-negative break-all">{{ .Error }}</div>
+    {{ end }}
+
+    {{ if .Windows }}
+    <div class="cliproxy-quota-windows">
+        {{ range .Windows }}
+        <div class="cliproxy-quota-window">
+            <div class="cliproxy-quota-window-header">
+                <div class="cliproxy-quota-window-label text-truncate">{{ .Label }}</div>
+                <div class="cliproxy-quota-window-value color-highlight">{{ .PercentLabel }}</div>
+            </div>
+            <div class="progress-bar">
+                <div class="progress-value {{ .ProgressClass }}" style="--percent: {{ .ProgressValue }}"></div>
+            </div>
+            <div class="cliproxy-quota-window-reset color-subdue">Reset {{ .ResetLabel }}</div>
+        </div>
+        {{ end }}
+    </div>
+    {{ else if not .Error }}
+    <div class="cliproxy-quota-empty color-subdue">No quota data available.</div>
+    {{ end }}
 </div>
 {{ end }}

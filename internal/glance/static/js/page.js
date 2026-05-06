@@ -3,6 +3,8 @@ import { setupMasonries } from './masonry.js';
 import { throttledDebounce, isElementVisible, openURLInNewTab } from './utils.js';
 import { elem, find, findAll } from './templating.js';
 
+const cliproxyQuotaViewByWidgetID = new Map();
+
 async function fetchPageContent(pageData) {
     // TODO: handle non 200 status codes/time outs
     // TODO: add retries
@@ -24,6 +26,57 @@ function findCliproxyQuotaWidgetByID(root, widgetID) {
     return null;
 }
 
+function setCliproxyQuotaView(quotaWidgetElement, view) {
+    const currentView = view == "accounts" ? "accounts" : "total";
+    quotaWidgetElement.dataset.quotaView = currentView;
+
+    const viewElements = quotaWidgetElement.querySelectorAll("[data-cliproxy-quota-view]");
+    for (let i = 0; i < viewElements.length; i++) {
+        viewElements[i].hidden = viewElements[i].dataset.cliproxyQuotaView != currentView;
+    }
+
+    const optionElements = quotaWidgetElement.querySelectorAll("[data-cliproxy-quota-view-option]");
+    for (let i = 0; i < optionElements.length; i++) {
+        optionElements[i].setAttribute(
+            "aria-pressed",
+            optionElements[i].dataset.cliproxyQuotaViewOption == currentView ? "true" : "false"
+        );
+    }
+}
+
+function setupCliproxyQuotaViewToggles(root = document) {
+    const quotaWidgetElements = [];
+    if (root.matches && root.matches("[data-cliproxy-quota-widget][data-widget-id]")) {
+        quotaWidgetElements.push(root);
+    }
+    quotaWidgetElements.push(...root.querySelectorAll("[data-cliproxy-quota-widget][data-widget-id]"));
+
+    for (let i = 0; i < quotaWidgetElements.length; i++) {
+        const quotaWidgetElement = quotaWidgetElements[i];
+        const optionElements = quotaWidgetElement.querySelectorAll("[data-cliproxy-quota-view-option]");
+        if (optionElements.length == 0) {
+            continue;
+        }
+
+        const widgetID = quotaWidgetElement.dataset.widgetId;
+        const savedView = cliproxyQuotaViewByWidgetID.get(widgetID) || quotaWidgetElement.dataset.quotaView || "total";
+        setCliproxyQuotaView(quotaWidgetElement, savedView);
+
+        if (quotaWidgetElement.dataset.cliproxyQuotaViewToggleReady == "true") {
+            continue;
+        }
+        quotaWidgetElement.dataset.cliproxyQuotaViewToggleReady = "true";
+
+        for (let j = 0; j < optionElements.length; j++) {
+            optionElements[j].addEventListener("click", () => {
+                const nextView = optionElements[j].dataset.cliproxyQuotaViewOption;
+                cliproxyQuotaViewByWidgetID.set(widgetID, nextView);
+                setCliproxyQuotaView(quotaWidgetElement, nextView);
+            });
+        }
+    }
+}
+
 async function refreshCliproxyQuotaWidget(pageData, quotaWidgetElement) {
     const widgetID = quotaWidgetElement.dataset.widgetId;
     if (!widgetID) return null;
@@ -40,6 +93,7 @@ async function refreshCliproxyQuotaWidget(pageData, quotaWidgetElement) {
     if (!newWidgetElement) return null;
 
     currentWidgetElement.replaceWith(newWidgetElement);
+    setupCliproxyQuotaViewToggles(newWidgetElement);
     setupTruncatedElementTitles();
 
     return newQuotaWidgetElement;
@@ -831,6 +885,7 @@ async function setupPage() {
         setupGroups();
         setupMasonries();
         setupDynamicRelativeTime();
+        setupCliproxyQuotaViewToggles();
         setupCliproxyQuotaPolling(pageData);
         setupLazyImages();
     } finally {
