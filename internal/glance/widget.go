@@ -75,6 +75,8 @@ func newWidget(widgetType string) (widget, error) {
 		w = &splitColumnWidget{}
 	case "custom-api":
 		w = &customAPIWidget{}
+	case "cliproxy-quota":
+		w = &cliproxyQuotaWidget{}
 	case "docker-containers":
 		w = &dockerContainersWidget{}
 	case "server-stats":

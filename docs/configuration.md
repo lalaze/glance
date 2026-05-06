@@ -16,6 +16,7 @@
   - [Available themes](#available-themes)
 - [Pages & Columns](#pages--columns)
 - [Widgets](#widgets)
+  - [CLIProxy Quota](#cliproxy-quota)
   - [RSS](#rss)
   - [Videos](#videos)
   - [Hacker News](#hacker-news)
@@ -741,6 +742,44 @@ cache: 1d  # 1 day
 
 #### `css-class`
 Set custom CSS classes for the specific widget instance.
+
+### CLIProxy Quota
+Display Codex quota from a [CLIProxyAPI](https://github.com/router-for-me/CLIProxyAPI) Management API instance. The widget calls CLIProxyAPI server-side, reads active Codex OAuth credentials, and uses `/v0/management/api-call` to fetch the Codex usage windows without exposing OAuth tokens to the browser.
+
+Example:
+
+```yaml
+- type: cliproxy-quota
+  title: Codex Quota
+  url: https://cliproxy.example.com
+  management-key: ${CLIPROXY_MANAGEMENT_KEY}
+  cache: 15m
+  timeout: 20s
+```
+
+#### Properties
+| Name | Type | Required | Default |
+| ---- | ---- | -------- | ------- |
+| url | string | yes | |
+| management-key | string | yes | |
+| timeout | string | no | 20s |
+| allow-insecure | boolean | no | false |
+
+##### `url`
+The base URL of your CLIProxyAPI instance. Glance appends `/v0/management` automatically. If the URL already ends with `/v0/management`, it will be used as-is.
+
+##### `management-key`
+The plaintext CLIProxyAPI Management API key. It is sent as `Authorization: Bearer <key>`. Do not use the bcrypt hash that CLIProxyAPI may write back to its config file after startup.
+
+> [!CAUTION]
+>
+> The management key grants access to CLIProxyAPI management endpoints. Protect your Glance config file, or provide this value through an environment variable or secret expansion.
+
+##### `timeout`
+How long to wait for each CLIProxyAPI management request.
+
+##### `allow-insecure`
+Whether to allow insecure HTTPS certificates when connecting to CLIProxyAPI.
 
 ### RSS
 Display a list of articles from multiple RSS feeds.

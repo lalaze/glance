@@ -1,0 +1,43 @@
+{{ template "widget-base.html" . }}
+
+{{ define "widget-content" }}
+{{ if eq (len .Accounts) 0 }}
+<div class="cliproxy-quota-empty color-subdue">No active Codex credentials found.</div>
+{{ else }}
+<div class="cliproxy-quota-accounts">
+    {{ range .Accounts }}
+    <div class="cliproxy-quota-account">
+        <div class="cliproxy-quota-account-header">
+            <div class="min-width-0">
+                <div class="cliproxy-quota-account-name color-highlight text-truncate">{{ .Name }}</div>
+            </div>
+            <div class="cliproxy-quota-account-plan text-truncate">{{ if .Plan }}{{ .Plan }}{{ else }}Unknown{{ end }}</div>
+        </div>
+
+        {{ if .Error }}
+        <div class="cliproxy-quota-error color-negative break-all">{{ .Error }}</div>
+        {{ end }}
+
+        {{ if .Windows }}
+        <div class="cliproxy-quota-windows">
+            {{ range .Windows }}
+            <div class="cliproxy-quota-window">
+                <div class="cliproxy-quota-window-header">
+                    <div class="cliproxy-quota-window-label text-truncate">{{ .Label }}</div>
+                    <div class="cliproxy-quota-window-value color-highlight">{{ .PercentLabel }}</div>
+                </div>
+                <div class="progress-bar">
+                    <div class="progress-value {{ .ProgressClass }}" style="--percent: {{ .ProgressValue }}"></div>
+                </div>
+                <div class="cliproxy-quota-window-reset color-subdue">Reset {{ .ResetLabel }}</div>
+            </div>
+            {{ end }}
+        </div>
+        {{ else if not .Error }}
+        <div class="cliproxy-quota-empty color-subdue">No quota data available.</div>
+        {{ end }}
+    </div>
+    {{ end }}
+</div>
+{{ end }}
+{{ end }}
