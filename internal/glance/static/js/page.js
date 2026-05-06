@@ -12,6 +12,73 @@ async function fetchPageContent(pageData) {
     return content;
 }
 
+function findCliproxyQuotaWidgetByID(root, widgetID) {
+    const widgets = root.querySelectorAll("[data-cliproxy-quota-widget][data-widget-id]");
+
+    for (let i = 0; i < widgets.length; i++) {
+        if (widgets[i].dataset.widgetId == widgetID) {
+            return widgets[i];
+        }
+    }
+
+    return null;
+}
+
+async function refreshCliproxyQuotaWidget(pageData, quotaWidgetElement) {
+    const widgetID = quotaWidgetElement.dataset.widgetId;
+    if (!widgetID) return null;
+
+    const currentWidgetElement = quotaWidgetElement.closest(".widget");
+    if (!currentWidgetElement) return null;
+
+    const pageContent = await fetchPageContent(pageData);
+    const parsedDocument = new DOMParser().parseFromString(pageContent, "text/html");
+    const newQuotaWidgetElement = findCliproxyQuotaWidgetByID(parsedDocument, widgetID);
+    if (!newQuotaWidgetElement) return null;
+
+    const newWidgetElement = newQuotaWidgetElement.closest(".widget");
+    if (!newWidgetElement) return null;
+
+    currentWidgetElement.replaceWith(newWidgetElement);
+    setupTruncatedElementTitles();
+
+    return newQuotaWidgetElement;
+}
+
+function setupCliproxyQuotaPolling(pageData) {
+    const quotaWidgetElements = document.querySelectorAll("[data-cliproxy-quota-widget][data-poll-interval]");
+
+    for (let i = 0; i < quotaWidgetElements.length; i++) {
+        let quotaWidgetElement = quotaWidgetElements[i];
+        const pollInterval = Number(quotaWidgetElement.dataset.pollInterval);
+
+        if (!Number.isFinite(pollInterval) || pollInterval <= 0) {
+            continue;
+        }
+
+        let isRefreshing = false;
+
+        setInterval(async () => {
+            if (isRefreshing || document.hidden === true) {
+                return;
+            }
+
+            isRefreshing = true;
+
+            try {
+                const refreshedWidgetElement = await refreshCliproxyQuotaWidget(pageData, quotaWidgetElement);
+                if (refreshedWidgetElement) {
+                    quotaWidgetElement = refreshedWidgetElement;
+                }
+            } catch {
+                // Keep showing the last successful quota content when a poll fails.
+            } finally {
+                isRefreshing = false;
+            }
+        }, pollInterval);
+    }
+}
+
 function setupCarousels() {
     const carouselElements = document.getElementsByClassName("carousel-container");
 
@@ -764,6 +831,7 @@ async function setupPage() {
         setupGroups();
         setupMasonries();
         setupDynamicRelativeTime();
+        setupCliproxyQuotaPolling(pageData);
         setupLazyImages();
     } finally {
         pageElement.classList.add("content-ready");

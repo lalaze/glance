@@ -32,6 +32,7 @@ type cliproxyQuotaWidget struct {
 	ManagementKey    string                 `yaml:"management-key"`
 	AllowInsecure    bool                   `yaml:"allow-insecure"`
 	Timeout          durationField          `yaml:"timeout"`
+	PollInterval     durationField          `yaml:"poll-interval"`
 	Accounts         []cliproxyQuotaAccount `yaml:"-"`
 	managementAPIURL string
 	client           *http.Client
@@ -80,6 +81,14 @@ func (widget *cliproxyQuotaWidget) update(ctx context.Context) {
 
 func (widget *cliproxyQuotaWidget) Render() template.HTML {
 	return widget.renderTemplate(widget, cliproxyQuotaWidgetTemplate)
+}
+
+func (widget *cliproxyQuotaWidget) PollIntervalMilliseconds() int64 {
+	if widget.PollInterval <= 0 {
+		return 0
+	}
+
+	return time.Duration(widget.PollInterval).Milliseconds()
 }
 
 type cliproxyAuthFilesResponse struct {

@@ -754,6 +754,7 @@ Example:
   url: https://cliproxy.example.com
   management-key: ${CLIPROXY_MANAGEMENT_KEY}
   cache: 15m
+  poll-interval: 15m
   timeout: 20s
 ```
 
@@ -763,6 +764,7 @@ Example:
 | url | string | yes | |
 | management-key | string | yes | |
 | timeout | string | no | 20s |
+| poll-interval | string | no | |
 | allow-insecure | boolean | no | false |
 
 ##### `url`
@@ -777,6 +779,11 @@ The plaintext CLIProxyAPI Management API key. It is sent as `Authorization: Bear
 
 ##### `timeout`
 How long to wait for each CLIProxyAPI management request.
+
+##### `poll-interval`
+How often the browser should refresh this widget while the page is open. By default this is disabled and the widget only updates when the page content is requested again, such as after a page refresh.
+
+The server-side `cache` value is still respected. For the browser refresh to fetch fresh quota data every time, set `poll-interval` to the same value as `cache` or a longer value.
 
 ##### `allow-insecure`
 Whether to allow insecure HTTPS certificates when connecting to CLIProxyAPI.

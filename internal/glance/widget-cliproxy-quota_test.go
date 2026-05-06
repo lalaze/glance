@@ -331,6 +331,38 @@ func TestCliproxyQuotaWidgetInitializeValidation(t *testing.T) {
 	}
 }
 
+func TestCliproxyQuotaWidgetRenderDisablesPollingByDefault(t *testing.T) {
+	widget := &cliproxyQuotaWidget{}
+	widget.setID(42)
+	widget.ContentAvailable = true
+
+	rendered := string(widget.Render())
+
+	if !strings.Contains(rendered, `data-cliproxy-quota-widget`) {
+		t.Fatalf("expected rendered widget to include the quota widget marker: %s", rendered)
+	}
+	if !strings.Contains(rendered, `data-widget-id="42"`) {
+		t.Fatalf("expected rendered widget to include its widget ID: %s", rendered)
+	}
+	if strings.Contains(rendered, "data-poll-interval") {
+		t.Fatalf("expected default render to omit polling interval: %s", rendered)
+	}
+}
+
+func TestCliproxyQuotaWidgetRenderIncludesPollingIntervalWhenConfigured(t *testing.T) {
+	widget := &cliproxyQuotaWidget{
+		PollInterval: durationField(15 * time.Minute),
+	}
+	widget.setID(42)
+	widget.ContentAvailable = true
+
+	rendered := string(widget.Render())
+
+	if !strings.Contains(rendered, `data-poll-interval="900000"`) {
+		t.Fatalf("expected rendered widget to include 15m polling interval in milliseconds: %s", rendered)
+	}
+}
+
 func TestCliproxyAuthFileExtractsCodexClaimsFromJWT(t *testing.T) {
 	token := testJWT(t, map[string]any{
 		"email": "user@example.com",

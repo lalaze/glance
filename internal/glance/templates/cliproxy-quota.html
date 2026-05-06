@@ -1,6 +1,8 @@
 {{ template "widget-base.html" . }}
 
 {{ define "widget-content" }}
+{{ $pollInterval := .PollIntervalMilliseconds }}
+<div class="cliproxy-quota" data-cliproxy-quota-widget data-widget-id="{{ .GetID }}"{{ if gt $pollInterval 0 }} data-poll-interval="{{ $pollInterval }}"{{ end }}>
 {{ if eq (len .Accounts) 0 }}
 <div class="cliproxy-quota-empty color-subdue">No active Codex credentials found.</div>
 {{ else }}
@@ -40,4 +42,5 @@
     {{ end }}
 </div>
 {{ end }}
+</div>
 {{ end }}
