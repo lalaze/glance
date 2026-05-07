@@ -14,6 +14,23 @@ async function fetchPageContent(pageData) {
     return content;
 }
 
+function executeScriptsInElement(rootElement) {
+    const scriptElements = rootElement.querySelectorAll("script");
+
+    for (let i = 0; i < scriptElements.length; i++) {
+        const oldScript = scriptElements[i];
+        const newScript = document.createElement("script");
+
+        for (let j = 0; j < oldScript.attributes.length; j++) {
+            const attribute = oldScript.attributes[j];
+            newScript.setAttribute(attribute.name, attribute.value);
+        }
+
+        newScript.textContent = oldScript.textContent;
+        oldScript.replaceWith(newScript);
+    }
+}
+
 function findCliproxyQuotaWidgetByID(root, widgetID) {
     const widgets = root.querySelectorAll("[data-cliproxy-quota-widget][data-widget-id]");
 
@@ -905,6 +922,7 @@ async function setupPage() {
     const pageContent = await fetchPageContent(pageData);
 
     pageContentElement.innerHTML = pageContent;
+    executeScriptsInElement(pageContentElement);
 
     try {
         setupPopovers();

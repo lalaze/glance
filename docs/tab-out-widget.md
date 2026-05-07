@@ -6,7 +6,7 @@ based on Tab Out.
 Glance cannot read or close Chrome tabs by itself. The widget works by posting
 messages from the Glance page to a Tab Out bridge content script injected into
 the page by Chrome. The extension owns the Chrome permissions and calls
-`chrome.tabs` and, when available, `chrome.processes`.
+`chrome.tabs`.
 
 ## How to try it
 
@@ -37,8 +37,5 @@ If your Glance URL uses a different host, add it to the extension
 
 - Closing and discarding tabs are executed by the Chrome extension, not by
   Glance.
-- Memory numbers depend on `chrome.processes`. Chrome documents that API as a
-  Dev-channel API, so the widget handles missing process data and still shows
-  tabs/actions.
 - The widget talks only to the local extension through `window.postMessage`; it
   does not send tab data to a server.

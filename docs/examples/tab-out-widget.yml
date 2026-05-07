@@ -138,7 +138,16 @@
 
     <script>
       (() => {
-        const root = document.currentScript.previousElementSibling;
+        const scriptEl = document.currentScript;
+        const root = scriptEl?.previousElementSibling?.matches?.('[data-tabout-widget]')
+          ? scriptEl.previousElementSibling
+          : scriptEl?.closest?.('[data-tabout-widget]') || document.querySelector('[data-tabout-widget]');
+
+        if (!root) {
+          console.error('[tabout-widget] Failed to find widget root element');
+          return;
+        }
+
         const statsEl = root.querySelector('[data-role="stats"]');
         const messageEl = root.querySelector('[data-role="message"]');
         const groupsEl = root.querySelector('[data-role="groups"]');
@@ -190,11 +199,6 @@
           }[char]));
         }
 
-        function formatBytes(bytes) {
-          if (!Number.isFinite(bytes) || bytes <= 0) return '';
-          return `${Math.round(bytes / 1024 / 1024)} MiB`;
-        }
-
         function render(data) {
           const tabs = data.tabs.filter((tab) => !tab.isInternal);
           const groups = new Map();
@@ -208,7 +212,7 @@
             .sort((a, b) => b[1].length - a[1].length || a[0].localeCompare(b[0]));
 
           statsEl.textContent = `${data.stats.webTabs} tabs · ${sortedGroups.length} groups · ${data.stats.duplicateUrls} duplicate URLs`;
-          messageEl.textContent = data.stats.hasProcessMemory ? '' : 'Memory data is unavailable in this Chrome build; tab actions still work.';
+          messageEl.textContent = '';
           messageEl.classList.remove('error');
 
           groupsEl.innerHTML = sortedGroups.map(([domain, groupTabs]) => `
@@ -219,7 +223,6 @@
               </div>
               <div class="tabout-tabs">
                 ${groupTabs.map((tab) => {
-                  const memory = tab.memory ? formatBytes(tab.memory.privateMemory) : '';
                   const duplicate = tab.duplicateCount > 1 ? `${tab.duplicateCount}x` : '';
                   const state = tab.discarded ? 'discarded' : tab.active ? 'active' : '';
 
@@ -228,7 +231,6 @@
                       <div class="tabout-tab-main">
                         <button class="tabout-tab-title text-truncate" type="button" data-action="focus" title="${escapeHtml(tab.url)}">${escapeHtml(tab.title)}</button>
                         <div class="tabout-tab-meta">
-                          ${memory ? `<span>${memory}</span>` : ''}
                           ${duplicate ? `<span class="color-negative">${duplicate}</span>` : ''}
                           ${state ? `<span>${state}</span>` : ''}
                           ${tab.pinned ? '<span>pinned</span>' : ''}
@@ -294,6 +296,11 @@
           }
         });
 
-        refresh();
+        refresh().catch((error) => {
+          statsEl.textContent = 'Tab Out widget failed to initialize';
+          messageEl.textContent = error && error.message ? error.message : String(error);
+          messageEl.classList.add('error');
+          console.error('[tabout-widget] Initialization error', error);
+        });
       })();
     </script>
