@@ -58,7 +58,7 @@
             <div class="progress-bar">
                 <div class="progress-value {{ .ProgressClass }}" style="--percent: {{ .ProgressValue }}"></div>
             </div>
-            <div class="cliproxy-quota-window-reset color-subdue">Reset {{ .ResetLabel }}</div>
+            <div class="cliproxy-quota-window-reset color-subdue"{{ if .ResetTimestamp }} data-cliproxy-quota-reset-at="{{ .ResetTimestamp }}"{{ end }}>Reset {{ .ResetLabel }}</div>
         </div>
         {{ end }}
     </div>

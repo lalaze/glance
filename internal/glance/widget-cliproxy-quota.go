@@ -674,6 +674,14 @@ func (window cliproxyQuotaWindow) PercentLabel() string {
 	return fmt.Sprintf("%.0f%%", *window.RemainingPercent)
 }
 
+func (window cliproxyQuotaWindow) ResetTimestamp() string {
+	if window.ResetAt == nil {
+		return ""
+	}
+
+	return strconv.FormatInt(window.ResetAt.Unix(), 10)
+}
+
 func (window cliproxyQuotaWindow) ProgressValue() int {
 	if window.RemainingPercent == nil {
 		return 0

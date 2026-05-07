@@ -44,6 +44,38 @@ function setCliproxyQuotaView(quotaWidgetElement, view) {
     }
 }
 
+function formatCliproxyQuotaResetTime(date) {
+    const month = (date.getMonth() + 1).toString().padStart(2, "0");
+    const day = date.getDate().toString().padStart(2, "0");
+    const hours = date.getHours().toString().padStart(2, "0");
+    const minutes = date.getMinutes().toString().padStart(2, "0");
+
+    return `${month}-${day} ${hours}:${minutes}`;
+}
+
+function setupCliproxyQuotaResetTimes(root = document) {
+    const elements = [];
+    if (root.matches && root.matches("[data-cliproxy-quota-reset-at]")) {
+        elements.push(root);
+    }
+    elements.push(...root.querySelectorAll("[data-cliproxy-quota-reset-at]"));
+
+    for (let i = 0; i < elements.length; i++) {
+        const timestamp = Number(elements[i].dataset.cliproxyQuotaResetAt);
+        if (!Number.isFinite(timestamp) || timestamp <= 0) {
+            continue;
+        }
+
+        const resetAt = new Date(timestamp * 1000);
+        if (Number.isNaN(resetAt.getTime())) {
+            continue;
+        }
+
+        elements[i].textContent = `Reset ${formatCliproxyQuotaResetTime(resetAt)}`;
+        elements[i].title = resetAt.toLocaleString();
+    }
+}
+
 function setupCliproxyQuotaViewToggles(root = document) {
     const quotaWidgetElements = [];
     if (root.matches && root.matches("[data-cliproxy-quota-widget][data-widget-id]")) {
@@ -94,6 +126,7 @@ async function refreshCliproxyQuotaWidget(pageData, quotaWidgetElement) {
 
     currentWidgetElement.replaceWith(newWidgetElement);
     setupCliproxyQuotaViewToggles(newWidgetElement);
+    setupCliproxyQuotaResetTimes(newWidgetElement);
     setupTruncatedElementTitles();
 
     return newQuotaWidgetElement;
@@ -886,6 +919,7 @@ async function setupPage() {
         setupMasonries();
         setupDynamicRelativeTime();
         setupCliproxyQuotaViewToggles();
+        setupCliproxyQuotaResetTimes();
         setupCliproxyQuotaPolling(pageData);
         setupLazyImages();
     } finally {

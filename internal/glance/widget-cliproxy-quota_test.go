@@ -414,6 +414,36 @@ func TestCliproxyQuotaWidgetRenderIncludesPollingIntervalWhenConfigured(t *testi
 	}
 }
 
+func TestCliproxyQuotaWidgetRenderIncludesResetTimestamp(t *testing.T) {
+	remaining := 76.0
+	resetAt := time.Unix(1893456000, 0)
+	widget := &cliproxyQuotaWidget{
+		Accounts: []cliproxyQuotaAccount{
+			{
+				Name: "user@example.com",
+				Plan: "Plus",
+				Windows: []cliproxyQuotaWindow{
+					{
+						ID:               "five-hour",
+						Label:            "5-hour limit",
+						RemainingPercent: &remaining,
+						ResetLabel:       "01-01 00:00",
+						ResetAt:          &resetAt,
+					},
+				},
+			},
+		},
+	}
+	widget.setID(42)
+	widget.ContentAvailable = true
+
+	rendered := string(widget.Render())
+
+	if !strings.Contains(rendered, `data-cliproxy-quota-reset-at="1893456000"`) {
+		t.Fatalf("expected rendered reset time to include unix timestamp: %s", rendered)
+	}
+}
+
 func TestCliproxyQuotaWidgetRenderDefaultsToTotalViewForMultipleAccounts(t *testing.T) {
 	fiveHourFirst := 93.0
 	fiveHourSecond := 91.0
