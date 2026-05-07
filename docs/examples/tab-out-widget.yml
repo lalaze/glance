@@ -6,6 +6,7 @@
           display: flex;
           flex-direction: column;
           gap: 12px;
+          padding-top: 8px;
         }
 
         .tabout-toolbar {
@@ -53,24 +54,44 @@
         }
 
         .tabout-group {
-          display: flex;
-          flex-direction: column;
-          gap: 8px;
+          border: 1px solid var(--color-separator);
+          border-radius: var(--border-radius);
+          background: var(--color-widget-background-highlight);
+          overflow: hidden;
         }
 
         .tabout-group-title {
           display: flex;
           justify-content: space-between;
+          align-items: center;
           gap: 8px;
           color: var(--color-text-subdue);
           font-size: var(--font-size-h6);
           text-transform: uppercase;
+          cursor: pointer;
+          list-style: none;
+          padding: 8px;
+        }
+
+        .tabout-group-title::-webkit-details-marker {
+          display: none;
+        }
+
+        .tabout-group-title::before {
+          content: '▸';
+          margin-right: 6px;
+          transition: transform 0.15s ease;
+        }
+
+        .tabout-group[open] .tabout-group-title::before {
+          transform: rotate(90deg);
         }
 
         .tabout-tabs {
           display: flex;
           flex-direction: column;
           gap: 6px;
+          padding: 0 8px 8px;
         }
 
         .tabout-tab {
@@ -86,10 +107,18 @@
 
         .tabout-tab-main {
           min-width: 0;
+          overflow: hidden;
         }
 
         .tabout-tab-title {
           display: block;
+          width: 100%;
+          max-width: 100%;
+          min-width: 0;
+          text-align: left;
+          background: transparent;
+          border: 0;
+          padding: 0;
           color: var(--color-text-base);
           font-size: var(--font-size-h5);
           overflow: hidden;
@@ -216,11 +245,11 @@
           messageEl.classList.remove('error');
 
           groupsEl.innerHTML = sortedGroups.map(([domain, groupTabs]) => `
-            <section class="tabout-group">
-              <div class="tabout-group-title">
+            <details class="tabout-group">
+              <summary class="tabout-group-title">
                 <span>${escapeHtml(domain)}</span>
                 <span>${groupTabs.length}</span>
-              </div>
+              </summary>
               <div class="tabout-tabs">
                 ${groupTabs.map((tab) => {
                   const duplicate = tab.duplicateCount > 1 ? `${tab.duplicateCount}x` : '';
@@ -245,7 +274,7 @@
                   `;
                 }).join('')}
               </div>
-            </section>
+            </details>
           `).join('');
         }
 
