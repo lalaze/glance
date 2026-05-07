@@ -1,0 +1,299 @@
+- type: html
+  source: |
+    <div class="tabout-widget" data-tabout-widget>
+      <style>
+        .tabout-widget {
+          display: flex;
+          flex-direction: column;
+          gap: 12px;
+        }
+
+        .tabout-toolbar {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          gap: 10px;
+        }
+
+        .tabout-stats {
+          display: flex;
+          flex-wrap: wrap;
+          gap: 8px;
+          color: var(--color-text-subdue);
+          font-size: var(--font-size-h6);
+        }
+
+        .tabout-refresh {
+          border: 1px solid var(--color-separator);
+          background: var(--color-widget-background-highlight);
+          color: var(--color-text-base);
+          border-radius: var(--border-radius);
+          padding: 4px 9px;
+          cursor: pointer;
+        }
+
+        .tabout-refresh:hover {
+          border-color: var(--color-primary);
+        }
+
+        .tabout-message {
+          color: var(--color-text-subdue);
+          font-size: var(--font-size-h6);
+          line-height: 1.4;
+        }
+
+        .tabout-message.error {
+          color: var(--color-negative);
+        }
+
+        .tabout-groups {
+          display: flex;
+          flex-direction: column;
+          gap: 12px;
+        }
+
+        .tabout-group {
+          display: flex;
+          flex-direction: column;
+          gap: 8px;
+        }
+
+        .tabout-group-title {
+          display: flex;
+          justify-content: space-between;
+          gap: 8px;
+          color: var(--color-text-subdue);
+          font-size: var(--font-size-h6);
+          text-transform: uppercase;
+        }
+
+        .tabout-tabs {
+          display: flex;
+          flex-direction: column;
+          gap: 6px;
+        }
+
+        .tabout-tab {
+          display: grid;
+          grid-template-columns: minmax(0, 1fr) auto;
+          gap: 8px;
+          align-items: center;
+          border: 1px solid var(--color-separator);
+          border-radius: var(--border-radius);
+          padding: 8px;
+          background: var(--color-widget-background-highlight);
+        }
+
+        .tabout-tab-main {
+          min-width: 0;
+        }
+
+        .tabout-tab-title {
+          display: block;
+          color: var(--color-text-base);
+          font-size: var(--font-size-h5);
+          overflow: hidden;
+          text-overflow: ellipsis;
+          white-space: nowrap;
+          cursor: pointer;
+        }
+
+        .tabout-tab-meta {
+          display: flex;
+          flex-wrap: wrap;
+          gap: 6px;
+          margin-top: 3px;
+          color: var(--color-text-subdue);
+          font-size: var(--font-size-h6);
+        }
+
+        .tabout-actions {
+          display: flex;
+          gap: 4px;
+        }
+
+        .tabout-action {
+          border: 1px solid var(--color-separator);
+          background: var(--color-widget-background);
+          color: var(--color-text-subdue);
+          border-radius: var(--border-radius);
+          width: 28px;
+          height: 28px;
+          cursor: pointer;
+        }
+
+        .tabout-action:hover {
+          color: var(--color-text-base);
+          border-color: var(--color-primary);
+        }
+      </style>
+
+      <div class="tabout-toolbar">
+        <div class="tabout-stats" data-role="stats">Connecting to Tab Out...</div>
+        <button class="tabout-refresh" type="button" data-action="refresh">Refresh</button>
+      </div>
+      <div class="tabout-message" data-role="message"></div>
+      <div class="tabout-groups" data-role="groups"></div>
+    </div>
+
+    <script>
+      (() => {
+        const root = document.currentScript.previousElementSibling;
+        const statsEl = root.querySelector('[data-role="stats"]');
+        const messageEl = root.querySelector('[data-role="message"]');
+        const groupsEl = root.querySelector('[data-role="groups"]');
+        const pending = new Map();
+
+        function request(action, payload = {}) {
+          const requestId = `tabout-${Date.now()}-${Math.random().toString(16).slice(2)}`;
+
+          return new Promise((resolve, reject) => {
+            const timeout = setTimeout(() => {
+              pending.delete(requestId);
+              reject(new Error('Tab Out bridge extension did not respond'));
+            }, 2500);
+
+            pending.set(requestId, { resolve, reject, timeout });
+            window.postMessage({
+              source: 'glance-tab-out-widget',
+              requestId,
+              action,
+              ...payload,
+            }, window.location.origin);
+          });
+        }
+
+        window.addEventListener('message', (event) => {
+          if (event.source !== window) return;
+          if (!event.data || event.data.source !== 'glance-tab-out-bridge') return;
+
+          const entry = pending.get(event.data.requestId);
+          if (!entry) return;
+
+          pending.delete(event.data.requestId);
+          clearTimeout(entry.timeout);
+
+          if (event.data.ok) {
+            entry.resolve(event.data.data);
+          } else {
+            entry.reject(new Error(event.data.error || 'Tab Out bridge failed'));
+          }
+        });
+
+        function escapeHtml(value) {
+          return String(value || '').replace(/[&<>"']/g, (char) => ({
+            '&': '&amp;',
+            '<': '&lt;',
+            '>': '&gt;',
+            '"': '&quot;',
+            "'": '&#39;',
+          }[char]));
+        }
+
+        function formatBytes(bytes) {
+          if (!Number.isFinite(bytes) || bytes <= 0) return '';
+          return `${Math.round(bytes / 1024 / 1024)} MiB`;
+        }
+
+        function render(data) {
+          const tabs = data.tabs.filter((tab) => !tab.isInternal);
+          const groups = new Map();
+
+          for (const tab of tabs) {
+            if (!groups.has(tab.domain)) groups.set(tab.domain, []);
+            groups.get(tab.domain).push(tab);
+          }
+
+          const sortedGroups = [...groups.entries()]
+            .sort((a, b) => b[1].length - a[1].length || a[0].localeCompare(b[0]));
+
+          statsEl.textContent = `${data.stats.webTabs} tabs · ${sortedGroups.length} groups · ${data.stats.duplicateUrls} duplicate URLs`;
+          messageEl.textContent = data.stats.hasProcessMemory ? '' : 'Memory data is unavailable in this Chrome build; tab actions still work.';
+          messageEl.classList.remove('error');
+
+          groupsEl.innerHTML = sortedGroups.map(([domain, groupTabs]) => `
+            <section class="tabout-group">
+              <div class="tabout-group-title">
+                <span>${escapeHtml(domain)}</span>
+                <span>${groupTabs.length}</span>
+              </div>
+              <div class="tabout-tabs">
+                ${groupTabs.map((tab) => {
+                  const memory = tab.memory ? formatBytes(tab.memory.privateMemory) : '';
+                  const duplicate = tab.duplicateCount > 1 ? `${tab.duplicateCount}x` : '';
+                  const state = tab.discarded ? 'discarded' : tab.active ? 'active' : '';
+
+                  return `
+                    <div class="tabout-tab" data-tab-id="${tab.id}" data-window-id="${tab.windowId}">
+                      <div class="tabout-tab-main">
+                        <button class="tabout-tab-title text-truncate" type="button" data-action="focus" title="${escapeHtml(tab.url)}">${escapeHtml(tab.title)}</button>
+                        <div class="tabout-tab-meta">
+                          ${memory ? `<span>${memory}</span>` : ''}
+                          ${duplicate ? `<span class="color-negative">${duplicate}</span>` : ''}
+                          ${state ? `<span>${state}</span>` : ''}
+                          ${tab.pinned ? '<span>pinned</span>' : ''}
+                          ${tab.audible ? '<span>audio</span>' : ''}
+                        </div>
+                      </div>
+                      <div class="tabout-actions">
+                        <button class="tabout-action" type="button" data-action="discard" title="Discard tab">D</button>
+                        <button class="tabout-action" type="button" data-action="close" title="Close tab">x</button>
+                      </div>
+                    </div>
+                  `;
+                }).join('')}
+              </div>
+            </section>
+          `).join('');
+        }
+
+        async function refresh() {
+          try {
+            messageEl.textContent = '';
+            messageEl.classList.remove('error');
+            const data = await request('getTabs');
+            render(data);
+          } catch (error) {
+            statsEl.textContent = 'Tab Out bridge unavailable';
+            groupsEl.innerHTML = '';
+            messageEl.textContent = error.message;
+            messageEl.classList.add('error');
+          }
+        }
+
+        root.addEventListener('click', async (event) => {
+          const button = event.target.closest('[data-action]');
+          if (!button) return;
+
+          const action = button.dataset.action;
+          const tabEl = button.closest('[data-tab-id]');
+
+          try {
+            if (action === 'refresh') {
+              await refresh();
+              return;
+            }
+
+            if (!tabEl) return;
+
+            const tabId = Number(tabEl.dataset.tabId);
+            const windowId = Number(tabEl.dataset.windowId);
+
+            if (action === 'focus') {
+              await request('focusTab', { tabId, windowId });
+            } else if (action === 'close') {
+              await request('closeTabs', { tabIds: [tabId] });
+              await refresh();
+            } else if (action === 'discard') {
+              await request('discardTabs', { tabIds: [tabId] });
+              await refresh();
+            }
+          } catch (error) {
+            messageEl.textContent = error.message;
+            messageEl.classList.add('error');
+          }
+        });
+
+        refresh();
+      })();
+    </script>
