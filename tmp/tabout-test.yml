@@ -283,9 +283,27 @@ pages:
 
                     return expandedDomains;
                   }
+
+                  function getRenderedDomainOrder() {
+                    const domainOrder = new Map();
+                    const renderedGroups = groupsEl.querySelectorAll('.tabout-group[data-domain]');
+
+                    for (const group of renderedGroups) {
+                      if (!domainOrder.has(group.dataset.domain)) {
+                        domainOrder.set(group.dataset.domain, domainOrder.size);
+                      }
+                    }
+
+                    return domainOrder;
+                  }
+
+                  function compareGroups(a, b) {
+                    return b[1].length - a[1].length || a[0].localeCompare(b[0]);
+                  }
           
                   function render(data) {
                     const expandedDomains = getExpandedDomains();
+                    const renderedDomainOrder = getRenderedDomainOrder();
                     const tabs = data.tabs.filter((tab) => !tab.isInternal);
                     const groups = new Map();
           
@@ -295,7 +313,16 @@ pages:
                     }
           
                     const sortedGroups = [...groups.entries()]
-                      .sort((a, b) => b[1].length - a[1].length || a[0].localeCompare(b[0]));
+                      .sort((a, b) => {
+                        const aOrder = renderedDomainOrder.get(a[0]);
+                        const bOrder = renderedDomainOrder.get(b[0]);
+
+                        if (aOrder !== undefined && bOrder !== undefined) return aOrder - bOrder;
+                        if (aOrder !== undefined) return -1;
+                        if (bOrder !== undefined) return 1;
+
+                        return compareGroups(a, b);
+                      });
           
                     statsEl.textContent = `${data.stats.webTabs} tabs · ${sortedGroups.length} groups · ${data.stats.duplicateUrls} duplicate URLs`;
                     messageEl.textContent = data.stats.hasProcessMemory ? '' : 'Memory data is unavailable in this Chrome build; tab actions still work.';

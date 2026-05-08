@@ -228,7 +228,37 @@
           }[char]));
         }
 
+        function getExpandedDomains() {
+          const expandedDomains = new Set();
+          const expandedGroups = groupsEl.querySelectorAll('.tabout-group[open][data-domain]');
+
+          for (const group of expandedGroups) {
+            expandedDomains.add(group.dataset.domain);
+          }
+
+          return expandedDomains;
+        }
+
+        function getRenderedDomainOrder() {
+          const domainOrder = new Map();
+          const renderedGroups = groupsEl.querySelectorAll('.tabout-group[data-domain]');
+
+          for (const group of renderedGroups) {
+            if (!domainOrder.has(group.dataset.domain)) {
+              domainOrder.set(group.dataset.domain, domainOrder.size);
+            }
+          }
+
+          return domainOrder;
+        }
+
+        function compareGroups(a, b) {
+          return b[1].length - a[1].length || a[0].localeCompare(b[0]);
+        }
+
         function render(data) {
+          const expandedDomains = getExpandedDomains();
+          const renderedDomainOrder = getRenderedDomainOrder();
           const tabs = data.tabs.filter((tab) => !tab.isInternal);
           const groups = new Map();
 
@@ -238,14 +268,23 @@
           }
 
           const sortedGroups = [...groups.entries()]
-            .sort((a, b) => b[1].length - a[1].length || a[0].localeCompare(b[0]));
+            .sort((a, b) => {
+              const aOrder = renderedDomainOrder.get(a[0]);
+              const bOrder = renderedDomainOrder.get(b[0]);
+
+              if (aOrder !== undefined && bOrder !== undefined) return aOrder - bOrder;
+              if (aOrder !== undefined) return -1;
+              if (bOrder !== undefined) return 1;
+
+              return compareGroups(a, b);
+            });
 
           statsEl.textContent = `${data.stats.webTabs} tabs · ${sortedGroups.length} groups · ${data.stats.duplicateUrls} duplicate URLs`;
           messageEl.textContent = '';
           messageEl.classList.remove('error');
 
           groupsEl.innerHTML = sortedGroups.map(([domain, groupTabs]) => `
-            <details class="tabout-group">
+            <details class="tabout-group" data-domain="${escapeHtml(domain)}"${expandedDomains.has(domain) ? ' open' : ''}>
               <summary class="tabout-group-title">
                 <span>${escapeHtml(domain)}</span>
                 <span>${groupTabs.length}</span>
@@ -295,6 +334,8 @@
         root.addEventListener('click', async (event) => {
           const button = event.target.closest('[data-action]');
           if (!button) return;
+          event.preventDefault();
+          event.stopPropagation();
 
           const action = button.dataset.action;
           const tabEl = button.closest('[data-tab-id]');
