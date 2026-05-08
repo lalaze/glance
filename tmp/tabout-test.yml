@@ -272,8 +272,20 @@ pages:
                     if (!Number.isFinite(bytes) || bytes <= 0) return '';
                     return `${Math.round(bytes / 1024 / 1024)} MiB`;
                   }
+
+                  function getExpandedDomains() {
+                    const expandedDomains = new Set();
+                    const expandedGroups = groupsEl.querySelectorAll('.tabout-group[open][data-domain]');
+
+                    for (const group of expandedGroups) {
+                      expandedDomains.add(group.dataset.domain);
+                    }
+
+                    return expandedDomains;
+                  }
           
                   function render(data) {
+                    const expandedDomains = getExpandedDomains();
                     const tabs = data.tabs.filter((tab) => !tab.isInternal);
                     const groups = new Map();
           
@@ -290,7 +302,7 @@ pages:
                     messageEl.classList.remove('error');
           
                     groupsEl.innerHTML = sortedGroups.map(([domain, groupTabs]) => `
-                      <details class="tabout-group">
+                      <details class="tabout-group" data-domain="${escapeHtml(domain)}"${expandedDomains.has(domain) ? ' open' : ''}>
                         <summary class="tabout-group-title">
                           <span>${escapeHtml(domain)}</span>
                           <span>${groupTabs.length}</span>
@@ -342,6 +354,8 @@ pages:
                   root.addEventListener('click', async (event) => {
                     const button = event.target.closest('[data-action]');
                     if (!button) return;
+                    event.preventDefault();
+                    event.stopPropagation();
           
                     const action = button.dataset.action;
                     const tabEl = button.closest('[data-tab-id]');

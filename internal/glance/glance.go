@@ -34,8 +34,9 @@ type application struct {
 
 	parsedManifest []byte
 
-	slugToPage map[string]*page
-	widgetByID map[uint64]widget
+	slugToPage     map[string]*page
+	widgetByID     map[uint64]widget
+	widgetPageByID map[uint64]*page
 
 	RequiresAuth           bool
 	authSecretKey          []byte
@@ -46,11 +47,12 @@ type application struct {
 
 func newApplication(c *config) (*application, error) {
 	app := &application{
-		Version:    buildVersion,
-		CreatedAt:  time.Now(),
-		Config:     *c,
-		slugToPage: make(map[string]*page),
-		widgetByID: make(map[uint64]widget),
+		Version:        buildVersion,
+		CreatedAt:      time.Now(),
+		Config:         *c,
+		slugToPage:     make(map[string]*page),
+		widgetByID:     make(map[uint64]widget),
+		widgetPageByID: make(map[uint64]*page),
 	}
 	config := &app.Config
 
@@ -173,9 +175,7 @@ func newApplication(c *config) (*application, error) {
 		}
 
 		for i := range page.HeadWidgets {
-			widget := page.HeadWidgets[i]
-			app.widgetByID[widget.GetID()] = widget
-			widget.setProviders(providers)
+			app.registerWidgetForPage(page, providers, page.HeadWidgets[i])
 		}
 
 		for c := range page.Columns {
@@ -186,9 +186,7 @@ func newApplication(c *config) (*application, error) {
 			}
 
 			for w := range column.Widgets {
-				widget := column.Widgets[w]
-				app.widgetByID[widget.GetID()] = widget
-				widget.setProviders(providers)
+				app.registerWidgetForPage(page, providers, column.Widgets[w])
 			}
 		}
 	}
@@ -228,6 +226,23 @@ func newApplication(c *config) (*application, error) {
 	app.parsedManifest = []byte(manifest)
 
 	return app, nil
+}
+
+func (a *application) registerWidgetForPage(page *page, providers *widgetProviders, widget widget) {
+	a.widgetByID[widget.GetID()] = widget
+	a.widgetPageByID[widget.GetID()] = page
+	widget.setProviders(providers)
+
+	switch typedWidget := widget.(type) {
+	case *groupWidget:
+		for i := range typedWidget.Widgets {
+			a.registerWidgetForPage(page, providers, typedWidget.Widgets[i])
+		}
+	case *splitColumnWidget:
+		for i := range typedWidget.Widgets {
+			a.registerWidgetForPage(page, providers, typedWidget.Widgets[i])
+		}
+	}
 }
 
 func (p *page) updateOutdatedWidgets() {
@@ -402,26 +417,47 @@ func (a *application) handleNotFound(w http.ResponseWriter, _ *http.Request) {
 }
 
 func (a *application) handleWidgetRequest(w http.ResponseWriter, r *http.Request) {
-	// TODO: this requires a rework of the widget update logic so that rather
-	// than locking the entire page we lock individual widgets
+	if a.handleUnauthorizedResponse(w, r, showUnauthorizedJSON) {
+		return
+	}
+
+	if r.Method == http.MethodPost && strings.Trim(r.PathValue("path"), "/") == "refresh" {
+		a.handleWidgetRefreshRequest(w, r)
+		return
+	}
+
 	w.WriteHeader(http.StatusNotImplemented)
+}
 
-	// widgetValue := r.PathValue("widget")
+func (a *application) handleWidgetRefreshRequest(w http.ResponseWriter, r *http.Request) {
+	widgetValue := r.PathValue("widget")
 
-	// widgetID, err := strconv.ParseUint(widgetValue, 10, 64)
-	// if err != nil {
-	// 	a.handleNotFound(w, r)
-	// 	return
-	// }
+	widgetID, err := strconv.ParseUint(widgetValue, 10, 64)
+	if err != nil {
+		a.handleNotFound(w, r)
+		return
+	}
 
-	// widget, exists := a.widgetByID[widgetID]
+	widget, exists := a.widgetByID[widgetID]
+	if !exists {
+		a.handleNotFound(w, r)
+		return
+	}
 
-	// if !exists {
-	// 	a.handleNotFound(w, r)
-	// 	return
-	// }
+	page, exists := a.widgetPageByID[widgetID]
+	if !exists {
+		w.WriteHeader(http.StatusInternalServerError)
+		w.Write([]byte("widget page not found"))
+		return
+	}
 
-	// widget.handleRequest(w, r)
+	page.mu.Lock()
+	defer page.mu.Unlock()
+
+	widget.update(r.Context())
+
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	w.Write([]byte(widget.Render()))
 }
 
 func (a *application) StaticAssetPath(asset string) string {

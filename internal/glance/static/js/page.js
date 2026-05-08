@@ -14,6 +14,18 @@ async function fetchPageContent(pageData) {
     return content;
 }
 
+async function fetchWidgetRefresh(pageData, widgetID) {
+    const response = await fetch(`${pageData.baseURL}/api/widgets/${encodeURIComponent(widgetID)}/refresh`, {
+        method: "POST",
+    });
+
+    if (!response.ok) {
+        throw new Error(`Widget refresh failed with ${response.status}`);
+    }
+
+    return await response.text();
+}
+
 function executeScriptsInElement(rootElement) {
     const scriptElements = rootElement.querySelectorAll("script");
 
@@ -133,8 +145,8 @@ async function refreshCliproxyQuotaWidget(pageData, quotaWidgetElement) {
     const currentWidgetElement = quotaWidgetElement.closest(".widget");
     if (!currentWidgetElement) return null;
 
-    const pageContent = await fetchPageContent(pageData);
-    const parsedDocument = new DOMParser().parseFromString(pageContent, "text/html");
+    const widgetContent = await fetchWidgetRefresh(pageData, widgetID);
+    const parsedDocument = new DOMParser().parseFromString(widgetContent, "text/html");
     const newQuotaWidgetElement = findCliproxyQuotaWidgetByID(parsedDocument, widgetID);
     if (!newQuotaWidgetElement) return null;
 
@@ -143,10 +155,50 @@ async function refreshCliproxyQuotaWidget(pageData, quotaWidgetElement) {
 
     currentWidgetElement.replaceWith(newWidgetElement);
     setupCliproxyQuotaViewToggles(newWidgetElement);
+    setupCliproxyQuotaRefreshButtons(newWidgetElement, pageData);
     setupCliproxyQuotaResetTimes(newWidgetElement);
     setupTruncatedElementTitles();
 
     return newQuotaWidgetElement;
+}
+
+function setupCliproxyQuotaRefreshButtons(root, pageData) {
+    const quotaWidgetElements = [];
+    if (root.matches && root.matches("[data-cliproxy-quota-widget][data-widget-id]")) {
+        quotaWidgetElements.push(root);
+    }
+    quotaWidgetElements.push(...root.querySelectorAll("[data-cliproxy-quota-widget][data-widget-id]"));
+
+    for (let i = 0; i < quotaWidgetElements.length; i++) {
+        const quotaWidgetElement = quotaWidgetElements[i];
+        const refreshButton = quotaWidgetElement.querySelector("[data-cliproxy-quota-refresh-button]");
+        if (!refreshButton || refreshButton.dataset.cliproxyQuotaRefreshReady == "true") {
+            continue;
+        }
+
+        refreshButton.dataset.cliproxyQuotaRefreshReady = "true";
+
+        let isRefreshing = false;
+        refreshButton.addEventListener("click", async () => {
+            if (isRefreshing) {
+                return;
+            }
+
+            isRefreshing = true;
+            refreshButton.disabled = true;
+            refreshButton.setAttribute("aria-busy", "true");
+
+            try {
+                await refreshCliproxyQuotaWidget(pageData, quotaWidgetElement);
+            } catch (err) {
+                console.error(err);
+                refreshButton.disabled = false;
+                refreshButton.setAttribute("aria-busy", "false");
+            } finally {
+                isRefreshing = false;
+            }
+        });
+    }
 }
 
 function setupCliproxyQuotaPolling(pageData) {
@@ -938,6 +990,7 @@ async function setupPage() {
         setupDynamicRelativeTime();
         setupCliproxyQuotaViewToggles();
         setupCliproxyQuotaResetTimes();
+        setupCliproxyQuotaRefreshButtons(document, pageData);
         setupCliproxyQuotaPolling(pageData);
         setupLazyImages();
     } finally {

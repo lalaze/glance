@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/base64"
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -411,6 +412,112 @@ func TestCliproxyQuotaWidgetRenderIncludesPollingIntervalWhenConfigured(t *testi
 
 	if !strings.Contains(rendered, `data-poll-interval="900000"`) {
 		t.Fatalf("expected rendered widget to include 15m polling interval in milliseconds: %s", rendered)
+	}
+}
+
+func TestCliproxyQuotaWidgetRenderIncludesRefreshButton(t *testing.T) {
+	widget := &cliproxyQuotaWidget{}
+	widget.setID(42)
+	widget.ContentAvailable = true
+
+	rendered := string(widget.Render())
+
+	for _, expected := range []string{
+		`data-cliproxy-quota-refresh-button`,
+		`aria-label="Refresh Codex quota"`,
+		`Refresh`,
+	} {
+		if !strings.Contains(rendered, expected) {
+			t.Fatalf("expected rendered widget to contain %q: %s", expected, rendered)
+		}
+	}
+}
+
+func TestCliproxyQuotaWidgetRefreshEndpointForcesUpdate(t *testing.T) {
+	apiCalls := 0
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/v0/management/auth-files":
+			writeJSON(t, w, map[string]any{
+				"files": []map[string]any{
+					{
+						"auth_index": "codex-1",
+						"provider":   "codex",
+						"label":      "Personal",
+						"id_token": map[string]any{
+							"chatgpt_account_id": "acct_1",
+						},
+					},
+				},
+			})
+		case "/v0/management/api-call":
+			apiCalls++
+			writeJSON(t, w, cliproxyAPICallResponse{
+				StatusCode: http.StatusOK,
+				Body: fmt.Sprintf(`{
+					"rate_limit": {
+						"primary_window": {
+							"limit_window_seconds": 18000,
+							"used_percent": %d,
+							"reset_at": 1893456000
+						}
+					}
+				}`, apiCalls*10),
+			})
+		default:
+			t.Fatalf("unexpected path: %s", r.URL.Path)
+		}
+	}))
+	defer server.Close()
+
+	config, err := newConfigFromYAML([]byte(fmt.Sprintf(`
+pages:
+  - name: Home
+    columns:
+      - size: full
+        widgets:
+          - type: cliproxy-quota
+            url: %q
+            management-key: secret
+`, server.URL)))
+	if err != nil {
+		t.Fatalf("new config: %v", err)
+	}
+
+	app, err := newApplication(config)
+	if err != nil {
+		t.Fatalf("new application: %v", err)
+	}
+
+	quotaWidget := app.Config.Pages[0].Columns[0].Widgets[0].(*cliproxyQuotaWidget)
+	quotaWidget.update(context.Background())
+
+	if apiCalls != 1 {
+		t.Fatalf("expected initial update to make 1 api call, got %d", apiCalls)
+	}
+	if quotaWidget.Accounts[0].Windows[0].PercentLabel() != "90%" {
+		t.Fatalf("expected initial remaining quota to be 90%%, got %s", quotaWidget.Accounts[0].Windows[0].PercentLabel())
+	}
+
+	widgetID := fmt.Sprint(quotaWidget.GetID())
+	request := httptest.NewRequest(http.MethodPost, "/api/widgets/"+widgetID+"/refresh", nil)
+	request.SetPathValue("widget", widgetID)
+	request.SetPathValue("path", "refresh")
+	recorder := httptest.NewRecorder()
+
+	app.handleWidgetRequest(recorder, request)
+
+	if recorder.Code != http.StatusOK {
+		t.Fatalf("expected refresh to return 200, got %d: %s", recorder.Code, recorder.Body.String())
+	}
+	if apiCalls != 2 {
+		t.Fatalf("expected manual refresh to force a second api call, got %d", apiCalls)
+	}
+	if quotaWidget.Accounts[0].Windows[0].PercentLabel() != "80%" {
+		t.Fatalf("expected refreshed remaining quota to be 80%%, got %s", quotaWidget.Accounts[0].Windows[0].PercentLabel())
+	}
+	if !strings.Contains(recorder.Body.String(), `data-cliproxy-quota-widget`) {
+		t.Fatalf("expected response to contain rendered quota widget: %s", recorder.Body.String())
 	}
 }
 

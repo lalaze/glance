@@ -6,7 +6,9 @@
 
 .cliproxy-quota-toolbar {
     display: flex;
+    align-items: center;
     justify-content: flex-end;
+    gap: 0.45rem;
     margin-bottom: 0.55rem;
 }
 
@@ -37,6 +39,42 @@
 .cliproxy-quota-view-option[aria-pressed="true"] {
     color: var(--color-text-highlight);
     background: var(--color-widget-background-highlight);
+}
+
+.cliproxy-quota-refresh-button {
+    appearance: none;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.28rem;
+    border: 1px solid var(--color-separator);
+    border-radius: var(--border-radius);
+    padding: 0.18rem 0.55rem;
+    color: var(--color-text-base);
+    background: hsla(var(--color-widget-background-hsl-values), 0.55);
+    font: inherit;
+    font-size: var(--font-size-h6);
+    line-height: 1.2;
+    cursor: pointer;
+}
+
+.cliproxy-quota-refresh-button:hover {
+    color: var(--color-text-highlight);
+    background: var(--color-widget-background-highlight);
+}
+
+.cliproxy-quota-refresh-button:disabled {
+    cursor: wait;
+    opacity: 0.65;
+}
+
+.cliproxy-quota-refresh-icon {
+    width: 0.95em;
+    height: 0.95em;
+    flex-shrink: 0;
+}
+
+.cliproxy-quota-refresh-button[aria-busy="true"] .cliproxy-quota-refresh-icon {
+    animation: cliproxyQuotaRefreshSpin 0.8s linear infinite;
 }
 
 .cliproxy-quota-account {
@@ -165,6 +203,12 @@
 
 .progress-value.cliproxy-quota-progress-unknown {
     opacity: 0.35;
+}
+
+@keyframes cliproxyQuotaRefreshSpin {
+    to {
+        transform: rotate(360deg);
+    }
 }
 
 @container cliproxy-quota-account (max-width: 35rem) {
