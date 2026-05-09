@@ -238,6 +238,75 @@ func TestCliproxyQuotaWidgetFetchesCodexQuota(t *testing.T) {
 	}
 }
 
+func TestCliproxyQuotaWidgetFetchesSub2APIOpenAIAccounts(t *testing.T) {
+	usageCalls := 0
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Header.Get("x-api-key") != "secret" {
+			t.Errorf("unexpected x-api-key header: %q", r.Header.Get("x-api-key"))
+		}
+		if r.Header.Get("Authorization") != "" {
+			t.Errorf("did not expect Authorization header for Sub2API, got %q", r.Header.Get("Authorization"))
+		}
+
+		switch r.URL.Path {
+		case "/api/v1/admin/accounts":
+			if r.URL.Query().Get("platform") != "openai" {
+				t.Fatalf("expected platform=openai, got %q", r.URL.Query().Get("platform"))
+			}
+			writeJSON(t, w, map[string]any{
+				"code":    0,
+				"message": "success",
+				"data": map[string]any{
+					"items": []map[string]any{
+						{"id": 7, "name": "OpenAI One", "platform": "openai", "type": "oauth", "status": "active"},
+						{"id": 8, "name": "Claude", "platform": "anthropic", "type": "oauth", "status": "active"},
+					},
+					"total":     2,
+					"page":      1,
+					"page_size": 1000,
+				},
+			})
+		case "/api/v1/admin/accounts/7/usage":
+			usageCalls++
+			if r.URL.Query().Get("source") != "active" {
+				t.Fatalf("expected source=active, got %q", r.URL.Query().Get("source"))
+			}
+			writeJSON(t, w, map[string]any{
+				"code":    0,
+				"message": "success",
+				"data": map[string]any{
+					"five_hour": map[string]any{
+						"utilization": 30,
+						"resets_at":   "2030-01-01T00:00:00Z",
+					},
+				},
+			})
+		default:
+			t.Fatalf("unexpected path: %s", r.URL.Path)
+		}
+	}))
+	defer server.Close()
+
+	widget := newTestSub2APIQuotaWidget(t, server.URL)
+	widget.update(context.Background())
+
+	if widget.Error != nil {
+		t.Fatalf("unexpected widget error: %v", widget.Error)
+	}
+	if usageCalls != 1 {
+		t.Fatalf("expected 1 usage call, got %d", usageCalls)
+	}
+	if len(widget.Accounts) != 1 {
+		t.Fatalf("expected 1 account, got %d", len(widget.Accounts))
+	}
+	if widget.Accounts[0].Name != "OpenAI One" {
+		t.Fatalf("expected OpenAI One account, got %q", widget.Accounts[0].Name)
+	}
+	if len(widget.Accounts[0].Windows) != 1 || widget.Accounts[0].Windows[0].PercentLabel() != "70%" {
+		t.Fatalf("unexpected windows: %#v", widget.Accounts[0].Windows)
+	}
+}
+
 func TestCliproxyQuotaWidgetNoCodexCredentials(t *testing.T) {
 	apiCalls := 0
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -620,6 +689,22 @@ func newTestCliproxyQuotaWidget(t *testing.T, url string) *cliproxyQuotaWidget {
 	t.Helper()
 
 	widget := &cliproxyQuotaWidget{
+		URL:           url,
+		ManagementKey: "secret",
+		Timeout:       durationField(time.Second),
+	}
+	if err := widget.initialize(); err != nil {
+		t.Fatalf("initialize widget: %v", err)
+	}
+
+	return widget
+}
+
+func newTestSub2APIQuotaWidget(t *testing.T, url string) *cliproxyQuotaWidget {
+	t.Helper()
+
+	widget := &cliproxyQuotaWidget{
+		Provider:      "sub2api",
 		URL:           url,
 		ManagementKey: "secret",
 		Timeout:       durationField(time.Second),
