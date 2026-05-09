@@ -744,9 +744,9 @@ cache: 1d  # 1 day
 Set custom CSS classes for the specific widget instance.
 
 ### CLIProxy Quota
-Display Codex quota from a [CLIProxyAPI](https://github.com/router-for-me/CLIProxyAPI) Management API instance. The widget calls CLIProxyAPI server-side, reads active Codex OAuth credentials, and uses `/v0/management/api-call` to fetch the Codex usage windows without exposing OAuth tokens to the browser.
+Display Codex quota from a [CLIProxyAPI](https://github.com/router-for-me/CLIProxyAPI) Management API instance or OpenAI/Codex upstream account pool usage from a Sub2API admin instance. The widget calls the configured management API server-side without exposing upstream OAuth tokens or admin keys to the browser.
 
-Example:
+CLIProxyAPI example:
 
 ```yaml
 - type: cliproxy-quota
@@ -758,27 +758,54 @@ Example:
   timeout: 20s
 ```
 
+Sub2API example:
+
+```yaml
+- type: cliproxy-quota
+  provider: sub2api
+  title: Codex Quota
+  url: https://sub2api.example.com
+  management-key: ${SUB2API_ADMIN_API_KEY}
+  cache: 15m
+  poll-interval: 15m
+  timeout: 20s
+```
+
 #### Properties
 | Name | Type | Required | Default |
 | ---- | ---- | -------- | ------- |
+| provider | string | no | cliproxy |
 | url | string | yes | |
 | management-key | string | yes | |
 | timeout | string | no | 20s |
 | poll-interval | string | no | |
 | allow-insecure | boolean | no | false |
 
+##### `provider`
+The management API provider to use. Supported values are `cliproxy` and `sub2api`.
+
+When omitted, `cliproxy` is used for backward compatibility. In `sub2api` mode, the widget reads upstream OpenAI/Codex accounts from the Sub2API admin API. It does not display Sub2API user balances, user API key quota, payment balances, or non-OpenAI upstream platforms.
+
 ##### `url`
-The base URL of your CLIProxyAPI instance. Glance appends `/v0/management` automatically. If the URL already ends with `/v0/management`, it will be used as-is.
+The base URL of your management API instance.
+
+For `provider: cliproxy`, Glance appends `/v0/management` automatically. If the URL already ends with `/v0/management`, it will be used as-is.
+
+For `provider: sub2api`, Glance appends `/api/v1/admin` automatically. If the URL already ends with `/api/v1/admin`, it will be used as-is.
 
 ##### `management-key`
-The plaintext CLIProxyAPI Management API key. It is sent as `Authorization: Bearer <key>`. Do not use the bcrypt hash that CLIProxyAPI may write back to its config file after startup.
+The plaintext management API key.
+
+For CLIProxyAPI, it is sent as `Authorization: Bearer <key>`. Do not use the bcrypt hash that CLIProxyAPI may write back to its config file after startup.
+
+For Sub2API, it is sent as `x-api-key: <key>`. Use a Sub2API admin API key.
 
 > [!CAUTION]
 >
-> The management key grants access to CLIProxyAPI management endpoints. Protect your Glance config file, or provide this value through an environment variable or secret expansion.
+> The management key grants access to management endpoints. Protect your Glance config file, or provide this value through an environment variable or secret expansion.
 
 ##### `timeout`
-How long to wait for each CLIProxyAPI management request.
+How long to wait for each management API request.
 
 ##### `poll-interval`
 How often the browser should refresh this widget while the page is open. By default this is disabled and the widget only updates when the page content is requested again, such as after a page refresh.
@@ -786,7 +813,7 @@ How often the browser should refresh this widget while the page is open. By defa
 The server-side `cache` value is still respected. For the browser refresh to fetch fresh quota data every time, set `poll-interval` to the same value as `cache` or a longer value.
 
 ##### `allow-insecure`
-Whether to allow insecure HTTPS certificates when connecting to CLIProxyAPI.
+Whether to allow insecure HTTPS certificates when connecting to the management API.
 
 ### RSS
 Display a list of articles from multiple RSS feeds.
