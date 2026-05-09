@@ -509,7 +509,7 @@ func decodeSub2APIResponseJSON(body []byte, out any) error {
 			if out == nil {
 				return nil
 			}
-			return json.Unmarshal(rawData, out)
+			return decodeSub2APIDataJSON(rawData, out)
 		}
 	}
 
@@ -517,7 +517,22 @@ func decodeSub2APIResponseJSON(body []byte, out any) error {
 		return nil
 	}
 
-	return json.Unmarshal(body, out)
+	return decodeSub2APIDataJSON(body, out)
+}
+
+func decodeSub2APIDataJSON(body []byte, out any) error {
+	if err := json.Unmarshal(body, out); err == nil {
+		return nil
+	} else if accountsResponse, ok := out.(*sub2APIAccountsResponse); ok {
+		var accounts []sub2APIAccount
+		if arrayErr := json.Unmarshal(body, &accounts); arrayErr == nil {
+			accountsResponse.Items = accounts
+			return nil
+		}
+		return err
+	} else {
+		return err
+	}
 }
 
 func (response *cliproxyAPICallResponse) statusCode() int {

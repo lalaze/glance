@@ -368,6 +368,102 @@ func TestCliproxyQuotaWidgetFetchesSub2APIOpenAIAccounts(t *testing.T) {
 	}
 }
 
+func TestCliproxyQuotaWidgetFetchesSub2APIDirectAccountArray(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/api/v1/admin/accounts":
+			writeJSON(t, w, []map[string]any{
+				{"id": 7, "name": "OpenAI One", "platform": "openai", "type": "oauth", "status": "active"},
+			})
+		case "/api/v1/admin/accounts/7/usage":
+			writeJSON(t, w, map[string]any{
+				"code": 0,
+				"data": map[string]any{
+					"five_hour": map[string]any{"utilization": 50},
+				},
+			})
+		default:
+			t.Fatalf("unexpected path: %s", r.URL.Path)
+		}
+	}))
+	defer server.Close()
+
+	widget := newTestSub2APIQuotaWidget(t, server.URL)
+	widget.update(context.Background())
+
+	if widget.Error != nil {
+		t.Fatalf("unexpected widget error: %v", widget.Error)
+	}
+	if len(widget.Accounts) != 1 {
+		t.Fatalf("expected 1 account, got %d", len(widget.Accounts))
+	}
+	if widget.Accounts[0].Windows[0].PercentLabel() != "50%" {
+		t.Fatalf("expected 50%% remaining, got %s", widget.Accounts[0].Windows[0].PercentLabel())
+	}
+}
+
+func TestCliproxyQuotaWidgetKeepsSub2APIAccountUsageErrors(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/api/v1/admin/accounts":
+			writeJSON(t, w, map[string]any{
+				"code": 0,
+				"data": map[string]any{
+					"items": []map[string]any{
+						{"id": 1, "name": "ok", "platform": "openai", "status": "active"},
+						{"id": 2, "name": "fail", "platform": "openai", "status": "active"},
+					},
+				},
+			})
+		case "/api/v1/admin/accounts/1/usage":
+			writeJSON(t, w, map[string]any{"code": 0, "data": map[string]any{"five_hour": map[string]any{"utilization": 10}}})
+		case "/api/v1/admin/accounts/2/usage":
+			writeJSON(t, w, map[string]any{"code": 500, "message": "usage failed"})
+		default:
+			t.Fatalf("unexpected path: %s", r.URL.Path)
+		}
+	}))
+	defer server.Close()
+
+	widget := newTestSub2APIQuotaWidget(t, server.URL)
+	widget.update(context.Background())
+
+	if widget.Error != nil {
+		t.Fatalf("unexpected widget error: %v", widget.Error)
+	}
+	if len(widget.Accounts) != 2 {
+		t.Fatalf("expected 2 accounts, got %d", len(widget.Accounts))
+	}
+	if widget.Accounts[0].Error != "" {
+		t.Fatalf("unexpected first account error: %s", widget.Accounts[0].Error)
+	}
+	if widget.Accounts[1].Error == "" {
+		t.Fatal("expected second account error")
+	}
+}
+
+func TestCliproxyQuotaWidgetParsesSub2APIProviderConfig(t *testing.T) {
+	config, err := newConfigFromYAML([]byte(`
+pages:
+  - name: Home
+    columns:
+      - size: full
+        widgets:
+          - type: cliproxy-quota
+            provider: sub2api
+            url: https://sub2api.example.com
+            management-key: secret
+`))
+	if err != nil {
+		t.Fatalf("new config: %v", err)
+	}
+
+	quotaWidget := config.Pages[0].Columns[0].Widgets[0].(*cliproxyQuotaWidget)
+	if quotaWidget.Provider != cliproxyQuotaProviderSub2API {
+		t.Fatalf("expected sub2api provider, got %q", quotaWidget.Provider)
+	}
+}
+
 func TestCliproxyQuotaWidgetNoCodexCredentials(t *testing.T) {
 	apiCalls := 0
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
