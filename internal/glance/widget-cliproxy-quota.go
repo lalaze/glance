@@ -185,23 +185,35 @@ type sub2APIAccountsResponse struct {
 }
 
 type sub2APIAccount struct {
-	ID           int64   `json:"id"`
-	Name         string  `json:"name"`
-	Platform     string  `json:"platform"`
-	Type         string  `json:"type"`
-	Status       string  `json:"status"`
-	ErrorMessage string  `json:"error_message"`
-	QuotaLimit   float64 `json:"quota_limit"`
-	QuotaUsed    float64 `json:"quota_used"`
+	ID                 int64   `json:"id"`
+	Name               string  `json:"name"`
+	Platform           string  `json:"platform"`
+	Type               string  `json:"type"`
+	Status             string  `json:"status"`
+	ErrorMessage       string  `json:"error_message"`
+	QuotaLimit         float64 `json:"quota_limit"`
+	QuotaUsed          float64 `json:"quota_used"`
+	QuotaDailyLimit    float64 `json:"quota_daily_limit"`
+	QuotaDailyUsed     float64 `json:"quota_daily_used"`
+	QuotaWeeklyLimit   float64 `json:"quota_weekly_limit"`
+	QuotaWeeklyUsed    float64 `json:"quota_weekly_used"`
+	QuotaDailyResetAt  string  `json:"quota_daily_reset_at"`
+	QuotaWeeklyResetAt string  `json:"quota_weekly_reset_at"`
 }
 
 type sub2APIUsageInfo struct {
-	FiveHour *sub2APIUsageProgress `json:"five_hour"`
+	FiveHour            *sub2APIUsageProgress `json:"five_hour"`
+	SevenDay            *sub2APIUsageProgress `json:"seven_day"`
+	SevenDaySonnet      *sub2APIUsageProgress `json:"seven_day_sonnet"`
+	SubscriptionTier    string                `json:"subscription_tier"`
+	SubscriptionTierRaw string                `json:"subscription_tier_raw"`
+	Error               string                `json:"error"`
 }
 
 type sub2APIUsageProgress struct {
-	Utilization float64 `json:"utilization"`
-	ResetsAt    string  `json:"resets_at"`
+	Utilization      float64 `json:"utilization"`
+	ResetsAt         string  `json:"resets_at"`
+	RemainingSeconds int     `json:"remaining_seconds"`
 }
 
 func newCliproxyQuotaHTTPClient(timeout time.Duration, allowInsecure bool) *http.Client {
@@ -302,6 +314,12 @@ func (widget *cliproxyQuotaWidget) fetchSub2APICodexQuota(ctx context.Context) (
 			continue
 		}
 
+		if plan := sub2APIUsagePlan(usage); plan != "" {
+			account.Plan = plan
+		}
+		if strings.TrimSpace(usage.Error) != "" {
+			account.Error = strings.TrimSpace(usage.Error)
+		}
 		account.Windows = parseSub2APIQuotaWindows(usage, sub2APIAccount)
 		accounts = append(accounts, account)
 	}
@@ -642,6 +660,19 @@ func (account sub2APIAccount) displayPlan() string {
 	return "OpenAI"
 }
 
+func sub2APIUsagePlan(usage sub2APIUsageInfo) string {
+	for _, candidate := range []string{
+		formatCliproxyCodexPlan(usage.SubscriptionTier),
+		formatCliproxyCodexPlan(usage.SubscriptionTierRaw),
+	} {
+		if strings.TrimSpace(candidate) != "" {
+			return strings.TrimSpace(candidate)
+		}
+	}
+
+	return ""
+}
+
 func parseCliproxyCodexQuotaWindows(usage map[string]any) []cliproxyQuotaWindow {
 	windows := make([]cliproxyQuotaWindow, 0, 6)
 
@@ -686,8 +717,13 @@ func parseCliproxyCodexQuotaWindows(usage map[string]any) []cliproxyQuotaWindow 
 }
 
 func parseSub2APIQuotaWindows(usage sub2APIUsageInfo, account sub2APIAccount) []cliproxyQuotaWindow {
-	windows := make([]cliproxyQuotaWindow, 0, 3)
+	windows := make([]cliproxyQuotaWindow, 0, 6)
 	windows = appendSub2APIUsageWindow(windows, "five-hour", "5-hour limit", usage.FiveHour)
+	windows = appendSub2APIUsageWindow(windows, "weekly", "Weekly limit", usage.SevenDay)
+	windows = appendSub2APIUsageWindow(windows, "weekly-sonnet", "Weekly Sonnet limit", usage.SevenDaySonnet)
+	windows = appendSub2APIQuotaWindow(windows, "total-quota", "Total quota", account.QuotaLimit, account.QuotaUsed, "")
+	windows = appendSub2APIQuotaWindow(windows, "daily-quota", "Daily quota", account.QuotaDailyLimit, account.QuotaDailyUsed, account.QuotaDailyResetAt)
+	windows = appendSub2APIQuotaWindow(windows, "weekly-quota", "Weekly quota", account.QuotaWeeklyLimit, account.QuotaWeeklyUsed, account.QuotaWeeklyResetAt)
 	return windows
 }
 
@@ -696,7 +732,7 @@ func appendSub2APIUsageWindow(windows []cliproxyQuotaWindow, id, label string, p
 		return windows
 	}
 
-	resetAt := sub2APIResetAt(progress.ResetsAt)
+	resetAt := sub2APIResetAt(progress.ResetsAt, progress.RemainingSeconds)
 	return append(windows, cliproxyQuotaWindow{
 		ID:               id,
 		Label:            label,
@@ -706,17 +742,36 @@ func appendSub2APIUsageWindow(windows []cliproxyQuotaWindow, id, label string, p
 	})
 }
 
-func sub2APIResetAt(resetAt string) *time.Time {
-	if strings.TrimSpace(resetAt) == "" {
-		return nil
+func appendSub2APIQuotaWindow(windows []cliproxyQuotaWindow, id, label string, limit, used float64, resetAtValue string) []cliproxyQuotaWindow {
+	if limit <= 0 {
+		return windows
 	}
 
-	parsed, err := time.Parse(time.RFC3339, strings.TrimSpace(resetAt))
-	if err != nil {
-		return nil
+	usedPercent := (used / limit) * 100
+	resetAt := sub2APIResetAt(resetAtValue, 0)
+	return append(windows, cliproxyQuotaWindow{
+		ID:               id,
+		Label:            label,
+		RemainingPercent: sub2APIRemainingPercentFromUsed(usedPercent),
+		ResetLabel:       formatCliproxyQuotaResetTime(resetAt),
+		ResetAt:          resetAt,
+	})
+}
+
+func sub2APIResetAt(resetAt string, remainingSeconds int) *time.Time {
+	if strings.TrimSpace(resetAt) != "" {
+		parsed, err := time.Parse(time.RFC3339, strings.TrimSpace(resetAt))
+		if err == nil {
+			return &parsed
+		}
 	}
 
-	return &parsed
+	if remainingSeconds > 0 {
+		t := time.Now().Add(time.Duration(remainingSeconds) * time.Second)
+		return &t
+	}
+
+	return nil
 }
 
 func sub2APIRemainingPercentFromUsed(usedPercent float64) *float64 {

@@ -82,6 +82,67 @@ func TestParseCliproxyCodexQuotaWindows(t *testing.T) {
 	assertWindow("gpt-5-secondary", "50%")
 }
 
+func TestSub2APIUsageMapsAllCodexWindows(t *testing.T) {
+	resetAt := "2030-01-01T00:00:00Z"
+	usage := sub2APIUsageInfo{
+		FiveHour:       &sub2APIUsageProgress{Utilization: 20, ResetsAt: resetAt},
+		SevenDay:       &sub2APIUsageProgress{Utilization: 40, ResetsAt: resetAt},
+		SevenDaySonnet: &sub2APIUsageProgress{Utilization: 55, ResetsAt: resetAt},
+	}
+
+	windows := parseSub2APIQuotaWindows(usage, sub2APIAccount{})
+
+	assertWindow := func(id, percent string) {
+		t.Helper()
+		for _, window := range windows {
+			if window.ID == id {
+				if window.PercentLabel() != percent {
+					t.Fatalf("expected %s to be %s, got %s", id, percent, window.PercentLabel())
+				}
+				if window.ResetTimestamp() == "" {
+					t.Fatalf("expected %s to have reset timestamp", id)
+				}
+				return
+			}
+		}
+		t.Fatalf("missing window %s in %#v", id, windows)
+	}
+
+	assertWindow("five-hour", "80%")
+	assertWindow("weekly", "60%")
+	assertWindow("weekly-sonnet", "45%")
+}
+
+func TestSub2APIAccountQuotaFieldsMapToWindows(t *testing.T) {
+	account := sub2APIAccount{
+		QuotaLimit:       100,
+		QuotaUsed:        25,
+		QuotaDailyLimit:  10,
+		QuotaDailyUsed:   8,
+		QuotaWeeklyLimit: 50,
+		QuotaWeeklyUsed:  10,
+	}
+
+	windows := parseSub2APIQuotaWindows(sub2APIUsageInfo{}, account)
+
+	assertWindow := func(id, percent string) {
+		t.Helper()
+		for _, window := range windows {
+			if window.ID == id {
+				if window.PercentLabel() != percent {
+					t.Fatalf("expected %s to be %s, got %s", id, percent, window.PercentLabel())
+				}
+				return
+			}
+		}
+		t.Fatalf("missing window %s in %#v", id, windows)
+	}
+
+	assertWindow("total-quota", "75%")
+	assertWindow("daily-quota", "20%")
+	assertWindow("weekly-quota", "80%")
+}
+
 func TestCliproxyQuotaWidgetTotalAccountAveragesAccountWindows(t *testing.T) {
 	fiveHourFirst := 93.0
 	fiveHourSecond := 91.0
