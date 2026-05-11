@@ -650,6 +650,12 @@ func (account sub2APIAccount) isOpenAICodexAccount() bool {
 		return false
 	}
 
+	switch strings.ToLower(strings.TrimSpace(account.Type)) {
+	case "", "oauth", "setup-token":
+	default:
+		return false
+	}
+
 	switch strings.ToLower(strings.TrimSpace(account.Status)) {
 	case "", "active", "error":
 		return true

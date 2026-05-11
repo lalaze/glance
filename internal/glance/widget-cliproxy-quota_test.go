@@ -368,6 +368,48 @@ func TestCliproxyQuotaWidgetFetchesSub2APIOpenAIAccounts(t *testing.T) {
 	}
 }
 
+func TestCliproxyQuotaWidgetSkipsSub2APIAPIKeyAccounts(t *testing.T) {
+	usageCalls := 0
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/api/v1/admin/accounts":
+			writeJSON(t, w, map[string]any{
+				"code": 0,
+				"data": map[string]any{
+					"items": []map[string]any{
+						{"id": 11, "name": "API Key Account", "platform": "openai", "type": "apikey", "status": "active"},
+						{"id": 12, "name": "OAuth Account", "platform": "openai", "type": "oauth", "status": "active"},
+					},
+				},
+			})
+		case "/api/v1/admin/accounts/11/usage":
+			t.Fatal("apikey accounts should not request usage")
+		case "/api/v1/admin/accounts/12/usage":
+			usageCalls++
+			writeJSON(t, w, map[string]any{"code": 0, "data": map[string]any{"five_hour": map[string]any{"utilization": 25}}})
+		default:
+			t.Fatalf("unexpected path: %s", r.URL.Path)
+		}
+	}))
+	defer server.Close()
+
+	widget := newTestSub2APIQuotaWidget(t, server.URL)
+	widget.update(context.Background())
+
+	if widget.Error != nil {
+		t.Fatalf("unexpected widget error: %v", widget.Error)
+	}
+	if usageCalls != 1 {
+		t.Fatalf("expected 1 usage call, got %d", usageCalls)
+	}
+	if len(widget.Accounts) != 1 {
+		t.Fatalf("expected only oauth account, got %d", len(widget.Accounts))
+	}
+	if widget.Accounts[0].Name != "OAuth Account" {
+		t.Fatalf("expected OAuth Account, got %q", widget.Accounts[0].Name)
+	}
+}
+
 func TestCliproxyQuotaWidgetFetchesSub2APIDirectAccountArray(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {
