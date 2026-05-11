@@ -82,6 +82,67 @@ func TestParseCliproxyCodexQuotaWindows(t *testing.T) {
 	assertWindow("gpt-5-secondary", "50%")
 }
 
+func TestSub2APIUsageMapsAllCodexWindows(t *testing.T) {
+	resetAt := "2030-01-01T00:00:00Z"
+	usage := sub2APIUsageInfo{
+		FiveHour:       &sub2APIUsageProgress{Utilization: 20, ResetsAt: resetAt},
+		SevenDay:       &sub2APIUsageProgress{Utilization: 40, ResetsAt: resetAt},
+		SevenDaySonnet: &sub2APIUsageProgress{Utilization: 55, ResetsAt: resetAt},
+	}
+
+	windows := parseSub2APIQuotaWindows(usage, sub2APIAccount{})
+
+	assertWindow := func(id, percent string) {
+		t.Helper()
+		for _, window := range windows {
+			if window.ID == id {
+				if window.PercentLabel() != percent {
+					t.Fatalf("expected %s to be %s, got %s", id, percent, window.PercentLabel())
+				}
+				if window.ResetTimestamp() == "" {
+					t.Fatalf("expected %s to have reset timestamp", id)
+				}
+				return
+			}
+		}
+		t.Fatalf("missing window %s in %#v", id, windows)
+	}
+
+	assertWindow("five-hour", "80%")
+	assertWindow("weekly", "60%")
+	assertWindow("weekly-sonnet", "45%")
+}
+
+func TestSub2APIAccountQuotaFieldsMapToWindows(t *testing.T) {
+	account := sub2APIAccount{
+		QuotaLimit:       100,
+		QuotaUsed:        25,
+		QuotaDailyLimit:  10,
+		QuotaDailyUsed:   8,
+		QuotaWeeklyLimit: 50,
+		QuotaWeeklyUsed:  10,
+	}
+
+	windows := parseSub2APIQuotaWindows(sub2APIUsageInfo{}, account)
+
+	assertWindow := func(id, percent string) {
+		t.Helper()
+		for _, window := range windows {
+			if window.ID == id {
+				if window.PercentLabel() != percent {
+					t.Fatalf("expected %s to be %s, got %s", id, percent, window.PercentLabel())
+				}
+				return
+			}
+		}
+		t.Fatalf("missing window %s in %#v", id, windows)
+	}
+
+	assertWindow("total-quota", "75%")
+	assertWindow("daily-quota", "20%")
+	assertWindow("weekly-quota", "80%")
+}
+
 func TestCliproxyQuotaWidgetTotalAccountAveragesAccountWindows(t *testing.T) {
 	fiveHourFirst := 93.0
 	fiveHourSecond := 91.0
@@ -235,6 +296,171 @@ func TestCliproxyQuotaWidgetFetchesCodexQuota(t *testing.T) {
 	}
 	if len(account.Windows) != 1 || account.Windows[0].PercentLabel() != "60%" {
 		t.Fatalf("unexpected windows: %#v", account.Windows)
+	}
+}
+
+func TestCliproxyQuotaWidgetFetchesSub2APIOpenAIAccounts(t *testing.T) {
+	usageCalls := 0
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Header.Get("x-api-key") != "secret" {
+			t.Errorf("unexpected x-api-key header: %q", r.Header.Get("x-api-key"))
+		}
+		if r.Header.Get("Authorization") != "" {
+			t.Errorf("did not expect Authorization header for Sub2API, got %q", r.Header.Get("Authorization"))
+		}
+
+		switch r.URL.Path {
+		case "/api/v1/admin/accounts":
+			if r.URL.Query().Get("platform") != "openai" {
+				t.Fatalf("expected platform=openai, got %q", r.URL.Query().Get("platform"))
+			}
+			writeJSON(t, w, map[string]any{
+				"code":    0,
+				"message": "success",
+				"data": map[string]any{
+					"items": []map[string]any{
+						{"id": 7, "name": "OpenAI One", "platform": "openai", "type": "oauth", "status": "active"},
+						{"id": 8, "name": "Claude", "platform": "anthropic", "type": "oauth", "status": "active"},
+					},
+					"total":     2,
+					"page":      1,
+					"page_size": 1000,
+				},
+			})
+		case "/api/v1/admin/accounts/7/usage":
+			usageCalls++
+			if r.URL.Query().Get("source") != "active" {
+				t.Fatalf("expected source=active, got %q", r.URL.Query().Get("source"))
+			}
+			writeJSON(t, w, map[string]any{
+				"code":    0,
+				"message": "success",
+				"data": map[string]any{
+					"five_hour": map[string]any{
+						"utilization": 30,
+						"resets_at":   "2030-01-01T00:00:00Z",
+					},
+				},
+			})
+		default:
+			t.Fatalf("unexpected path: %s", r.URL.Path)
+		}
+	}))
+	defer server.Close()
+
+	widget := newTestSub2APIQuotaWidget(t, server.URL)
+	widget.update(context.Background())
+
+	if widget.Error != nil {
+		t.Fatalf("unexpected widget error: %v", widget.Error)
+	}
+	if usageCalls != 1 {
+		t.Fatalf("expected 1 usage call, got %d", usageCalls)
+	}
+	if len(widget.Accounts) != 1 {
+		t.Fatalf("expected 1 account, got %d", len(widget.Accounts))
+	}
+	if widget.Accounts[0].Name != "OpenAI One" {
+		t.Fatalf("expected OpenAI One account, got %q", widget.Accounts[0].Name)
+	}
+	if len(widget.Accounts[0].Windows) != 1 || widget.Accounts[0].Windows[0].PercentLabel() != "70%" {
+		t.Fatalf("unexpected windows: %#v", widget.Accounts[0].Windows)
+	}
+}
+
+func TestCliproxyQuotaWidgetFetchesSub2APIDirectAccountArray(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/api/v1/admin/accounts":
+			writeJSON(t, w, []map[string]any{
+				{"id": 7, "name": "OpenAI One", "platform": "openai", "type": "oauth", "status": "active"},
+			})
+		case "/api/v1/admin/accounts/7/usage":
+			writeJSON(t, w, map[string]any{
+				"code": 0,
+				"data": map[string]any{
+					"five_hour": map[string]any{"utilization": 50},
+				},
+			})
+		default:
+			t.Fatalf("unexpected path: %s", r.URL.Path)
+		}
+	}))
+	defer server.Close()
+
+	widget := newTestSub2APIQuotaWidget(t, server.URL)
+	widget.update(context.Background())
+
+	if widget.Error != nil {
+		t.Fatalf("unexpected widget error: %v", widget.Error)
+	}
+	if len(widget.Accounts) != 1 {
+		t.Fatalf("expected 1 account, got %d", len(widget.Accounts))
+	}
+	if widget.Accounts[0].Windows[0].PercentLabel() != "50%" {
+		t.Fatalf("expected 50%% remaining, got %s", widget.Accounts[0].Windows[0].PercentLabel())
+	}
+}
+
+func TestCliproxyQuotaWidgetKeepsSub2APIAccountUsageErrors(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/api/v1/admin/accounts":
+			writeJSON(t, w, map[string]any{
+				"code": 0,
+				"data": map[string]any{
+					"items": []map[string]any{
+						{"id": 1, "name": "ok", "platform": "openai", "status": "active"},
+						{"id": 2, "name": "fail", "platform": "openai", "status": "active"},
+					},
+				},
+			})
+		case "/api/v1/admin/accounts/1/usage":
+			writeJSON(t, w, map[string]any{"code": 0, "data": map[string]any{"five_hour": map[string]any{"utilization": 10}}})
+		case "/api/v1/admin/accounts/2/usage":
+			writeJSON(t, w, map[string]any{"code": 500, "message": "usage failed"})
+		default:
+			t.Fatalf("unexpected path: %s", r.URL.Path)
+		}
+	}))
+	defer server.Close()
+
+	widget := newTestSub2APIQuotaWidget(t, server.URL)
+	widget.update(context.Background())
+
+	if widget.Error != nil {
+		t.Fatalf("unexpected widget error: %v", widget.Error)
+	}
+	if len(widget.Accounts) != 2 {
+		t.Fatalf("expected 2 accounts, got %d", len(widget.Accounts))
+	}
+	if widget.Accounts[0].Error != "" {
+		t.Fatalf("unexpected first account error: %s", widget.Accounts[0].Error)
+	}
+	if widget.Accounts[1].Error == "" {
+		t.Fatal("expected second account error")
+	}
+}
+
+func TestCliproxyQuotaWidgetParsesSub2APIProviderConfig(t *testing.T) {
+	config, err := newConfigFromYAML([]byte(`
+pages:
+  - name: Home
+    columns:
+      - size: full
+        widgets:
+          - type: cliproxy-quota
+            provider: sub2api
+            url: https://sub2api.example.com
+            management-key: secret
+`))
+	if err != nil {
+		t.Fatalf("new config: %v", err)
+	}
+
+	quotaWidget := config.Pages[0].Columns[0].Widgets[0].(*cliproxyQuotaWidget)
+	if quotaWidget.Provider != cliproxyQuotaProviderSub2API {
+		t.Fatalf("expected sub2api provider, got %q", quotaWidget.Provider)
 	}
 }
 
@@ -620,6 +846,22 @@ func newTestCliproxyQuotaWidget(t *testing.T, url string) *cliproxyQuotaWidget {
 	t.Helper()
 
 	widget := &cliproxyQuotaWidget{
+		URL:           url,
+		ManagementKey: "secret",
+		Timeout:       durationField(time.Second),
+	}
+	if err := widget.initialize(); err != nil {
+		t.Fatalf("initialize widget: %v", err)
+	}
+
+	return widget
+}
+
+func newTestSub2APIQuotaWidget(t *testing.T, url string) *cliproxyQuotaWidget {
+	t.Helper()
+
+	widget := &cliproxyQuotaWidget{
+		Provider:      "sub2api",
 		URL:           url,
 		ManagementKey: "secret",
 		Timeout:       durationField(time.Second),

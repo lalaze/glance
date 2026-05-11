@@ -26,8 +26,14 @@ const (
 	cliproxyDefaultQuotaTimeout = 20 * time.Second
 )
 
+const (
+	cliproxyQuotaProviderCLIProxy = "cliproxy"
+	cliproxyQuotaProviderSub2API  = "sub2api"
+)
+
 type cliproxyQuotaWidget struct {
 	widgetBase       `yaml:",inline"`
+	Provider         string                 `yaml:"provider"`
 	URL              string                 `yaml:"url"`
 	ManagementKey    string                 `yaml:"management-key"`
 	AllowInsecure    bool                   `yaml:"allow-insecure"`
@@ -54,9 +60,23 @@ func (widget *cliproxyQuotaWidget) initialize() error {
 		return errors.New("management-key is required")
 	}
 
+	provider := strings.ToLower(strings.TrimSpace(widget.Provider))
+	if provider == "" {
+		provider = cliproxyQuotaProviderCLIProxy
+	}
+	switch provider {
+	case cliproxyQuotaProviderCLIProxy, cliproxyQuotaProviderSub2API:
+		widget.Provider = provider
+	default:
+		return fmt.Errorf("invalid provider: %s", widget.Provider)
+	}
+
 	managementAPIURL := strings.TrimRight(parsedURL.String(), "/")
-	if !strings.HasSuffix(managementAPIURL, "/v0/management") {
+	if widget.Provider == cliproxyQuotaProviderCLIProxy && !strings.HasSuffix(managementAPIURL, "/v0/management") {
 		managementAPIURL += "/v0/management"
+	}
+	if widget.Provider == cliproxyQuotaProviderSub2API && !strings.HasSuffix(managementAPIURL, "/api/v1/admin") {
+		managementAPIURL += "/api/v1/admin"
 	}
 
 	timeout := cliproxyDefaultQuotaTimeout
@@ -160,6 +180,42 @@ type cliproxyQuotaWindow struct {
 	ResetAt          *time.Time
 }
 
+type sub2APIAccountsResponse struct {
+	Items []sub2APIAccount `json:"items"`
+}
+
+type sub2APIAccount struct {
+	ID                 int64   `json:"id"`
+	Name               string  `json:"name"`
+	Platform           string  `json:"platform"`
+	Type               string  `json:"type"`
+	Status             string  `json:"status"`
+	ErrorMessage       string  `json:"error_message"`
+	QuotaLimit         float64 `json:"quota_limit"`
+	QuotaUsed          float64 `json:"quota_used"`
+	QuotaDailyLimit    float64 `json:"quota_daily_limit"`
+	QuotaDailyUsed     float64 `json:"quota_daily_used"`
+	QuotaWeeklyLimit   float64 `json:"quota_weekly_limit"`
+	QuotaWeeklyUsed    float64 `json:"quota_weekly_used"`
+	QuotaDailyResetAt  string  `json:"quota_daily_reset_at"`
+	QuotaWeeklyResetAt string  `json:"quota_weekly_reset_at"`
+}
+
+type sub2APIUsageInfo struct {
+	FiveHour            *sub2APIUsageProgress `json:"five_hour"`
+	SevenDay            *sub2APIUsageProgress `json:"seven_day"`
+	SevenDaySonnet      *sub2APIUsageProgress `json:"seven_day_sonnet"`
+	SubscriptionTier    string                `json:"subscription_tier"`
+	SubscriptionTierRaw string                `json:"subscription_tier_raw"`
+	Error               string                `json:"error"`
+}
+
+type sub2APIUsageProgress struct {
+	Utilization      float64 `json:"utilization"`
+	ResetsAt         string  `json:"resets_at"`
+	RemainingSeconds int     `json:"remaining_seconds"`
+}
+
 func newCliproxyQuotaHTTPClient(timeout time.Duration, allowInsecure bool) *http.Client {
 	transport := &http.Transport{
 		MaxIdleConnsPerHost: 10,
@@ -177,6 +233,14 @@ func newCliproxyQuotaHTTPClient(timeout time.Duration, allowInsecure bool) *http
 }
 
 func (widget *cliproxyQuotaWidget) fetchCodexQuota(ctx context.Context) ([]cliproxyQuotaAccount, error) {
+	if widget.Provider == cliproxyQuotaProviderSub2API {
+		return widget.fetchSub2APICodexQuota(ctx)
+	}
+
+	return widget.fetchCLIProxyCodexQuota(ctx)
+}
+
+func (widget *cliproxyQuotaWidget) fetchCLIProxyCodexQuota(ctx context.Context) ([]cliproxyQuotaAccount, error) {
 	authFiles, err := widget.fetchAuthFiles(ctx)
 	if err != nil {
 		return nil, err
@@ -222,6 +286,63 @@ func (widget *cliproxyQuotaWidget) fetchCodexQuota(ctx context.Context) ([]clipr
 	}
 
 	return accounts, nil
+}
+
+func (widget *cliproxyQuotaWidget) fetchSub2APICodexQuota(ctx context.Context) ([]cliproxyQuotaAccount, error) {
+	sub2APIAccounts, err := widget.fetchSub2APIAccounts(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	accounts := make([]cliproxyQuotaAccount, 0, len(sub2APIAccounts))
+	for _, sub2APIAccount := range sub2APIAccounts {
+		if !sub2APIAccount.isOpenAICodexAccount() {
+			continue
+		}
+
+		account := cliproxyQuotaAccount{
+			Name:      sub2APIAccount.displayName(),
+			Plan:      sub2APIAccount.displayPlan(),
+			AuthIndex: strconv.FormatInt(sub2APIAccount.ID, 10),
+			Error:     strings.TrimSpace(sub2APIAccount.ErrorMessage),
+		}
+
+		usage, err := widget.fetchSub2APIUsage(ctx, sub2APIAccount.ID)
+		if err != nil {
+			account.Error = err.Error()
+			accounts = append(accounts, account)
+			continue
+		}
+
+		if plan := sub2APIUsagePlan(usage); plan != "" {
+			account.Plan = plan
+		}
+		if strings.TrimSpace(usage.Error) != "" {
+			account.Error = strings.TrimSpace(usage.Error)
+		}
+		account.Windows = parseSub2APIQuotaWindows(usage, sub2APIAccount)
+		accounts = append(accounts, account)
+	}
+
+	return accounts, nil
+}
+
+func (widget *cliproxyQuotaWidget) fetchSub2APIAccounts(ctx context.Context) ([]sub2APIAccount, error) {
+	var response sub2APIAccountsResponse
+	if err := widget.decodeSub2APIManagementJSON(ctx, http.MethodGet, "/accounts?page=1&page_size=1000&platform=openai", nil, &response); err != nil {
+		return nil, fmt.Errorf("fetching Sub2API accounts: %w", err)
+	}
+
+	return response.Items, nil
+}
+
+func (widget *cliproxyQuotaWidget) fetchSub2APIUsage(ctx context.Context, accountID int64) (sub2APIUsageInfo, error) {
+	var usage sub2APIUsageInfo
+	if err := widget.decodeSub2APIManagementJSON(ctx, http.MethodGet, fmt.Sprintf("/accounts/%d/usage?source=active", accountID), nil, &usage); err != nil {
+		return usage, fmt.Errorf("fetching Sub2API account usage: %w", err)
+	}
+
+	return usage, nil
 }
 
 func (widget *cliproxyQuotaWidget) fetchAuthFiles(ctx context.Context) ([]cliproxyAuthFile, error) {
@@ -322,6 +443,96 @@ func (widget *cliproxyQuotaWidget) decodeManagementJSON(ctx context.Context, met
 	}
 
 	return nil
+}
+
+func (widget *cliproxyQuotaWidget) decodeSub2APIManagementJSON(ctx context.Context, method, path string, body any, out any) error {
+	var bodyReader io.Reader
+	if body != nil {
+		encoded, err := json.Marshal(body)
+		if err != nil {
+			return fmt.Errorf("encoding request body: %w", err)
+		}
+		bodyReader = bytes.NewReader(encoded)
+	}
+
+	req, err := http.NewRequestWithContext(ctx, method, widget.managementAPIURL+path, bodyReader)
+	if err != nil {
+		return err
+	}
+
+	req.Header.Set("Accept", "application/json")
+	req.Header.Set("x-api-key", strings.TrimSpace(widget.ManagementKey))
+	if body != nil {
+		req.Header.Set("Content-Type", "application/json")
+	}
+
+	resp, err := widget.client.Do(req)
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+
+	respBody, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return err
+	}
+
+	if resp.StatusCode != http.StatusOK {
+		truncatedBody, _ := limitStringLength(strings.TrimSpace(string(respBody)), 256)
+		if truncatedBody == "" {
+			truncatedBody = resp.Status
+		}
+		return fmt.Errorf("unexpected status code %d from %s: %s", resp.StatusCode, req.URL, truncatedBody)
+	}
+
+	return decodeSub2APIResponseJSON(respBody, out)
+}
+
+func decodeSub2APIResponseJSON(body []byte, out any) error {
+	var object map[string]json.RawMessage
+	if err := json.Unmarshal(body, &object); err == nil {
+		if _, hasCode := object["code"]; hasCode {
+			var code int
+			if err := json.Unmarshal(object["code"], &code); err != nil {
+				return err
+			}
+			if code != 0 {
+				message := "Sub2API request failed"
+				if rawMessage, ok := object["message"]; ok {
+					_ = json.Unmarshal(rawMessage, &message)
+				}
+				return errors.New(message)
+			}
+		}
+
+		if rawData, hasData := object["data"]; hasData {
+			if out == nil {
+				return nil
+			}
+			return decodeSub2APIDataJSON(rawData, out)
+		}
+	}
+
+	if out == nil {
+		return nil
+	}
+
+	return decodeSub2APIDataJSON(body, out)
+}
+
+func decodeSub2APIDataJSON(body []byte, out any) error {
+	if err := json.Unmarshal(body, out); err == nil {
+		return nil
+	} else if accountsResponse, ok := out.(*sub2APIAccountsResponse); ok {
+		var accounts []sub2APIAccount
+		if arrayErr := json.Unmarshal(body, &accounts); arrayErr == nil {
+			accountsResponse.Items = accounts
+			return nil
+		}
+		return err
+	} else {
+		return err
+	}
 }
 
 func (response *cliproxyAPICallResponse) statusCode() int {
@@ -434,6 +645,49 @@ func (authFile *cliproxyAuthFile) planType() string {
 	return ""
 }
 
+func (account sub2APIAccount) isOpenAICodexAccount() bool {
+	if !strings.EqualFold(strings.TrimSpace(account.Platform), "openai") {
+		return false
+	}
+
+	switch strings.ToLower(strings.TrimSpace(account.Status)) {
+	case "", "active", "error":
+		return true
+	default:
+		return false
+	}
+}
+
+func (account sub2APIAccount) displayName() string {
+	if strings.TrimSpace(account.Name) != "" {
+		return strings.TrimSpace(account.Name)
+	}
+	if account.ID != 0 {
+		return strconv.FormatInt(account.ID, 10)
+	}
+	return "OpenAI"
+}
+
+func (account sub2APIAccount) displayPlan() string {
+	if strings.TrimSpace(account.Type) != "" {
+		return strings.TrimSpace(account.Type)
+	}
+	return "OpenAI"
+}
+
+func sub2APIUsagePlan(usage sub2APIUsageInfo) string {
+	for _, candidate := range []string{
+		formatCliproxyCodexPlan(usage.SubscriptionTier),
+		formatCliproxyCodexPlan(usage.SubscriptionTierRaw),
+	} {
+		if strings.TrimSpace(candidate) != "" {
+			return strings.TrimSpace(candidate)
+		}
+	}
+
+	return ""
+}
+
 func parseCliproxyCodexQuotaWindows(usage map[string]any) []cliproxyQuotaWindow {
 	windows := make([]cliproxyQuotaWindow, 0, 6)
 
@@ -475,6 +729,70 @@ func parseCliproxyCodexQuotaWindows(usage map[string]any) []cliproxyQuotaWindow 
 	}
 
 	return windows
+}
+
+func parseSub2APIQuotaWindows(usage sub2APIUsageInfo, account sub2APIAccount) []cliproxyQuotaWindow {
+	windows := make([]cliproxyQuotaWindow, 0, 6)
+	windows = appendSub2APIUsageWindow(windows, "five-hour", "5-hour limit", usage.FiveHour)
+	windows = appendSub2APIUsageWindow(windows, "weekly", "Weekly limit", usage.SevenDay)
+	windows = appendSub2APIUsageWindow(windows, "weekly-sonnet", "Weekly Sonnet limit", usage.SevenDaySonnet)
+	windows = appendSub2APIQuotaWindow(windows, "total-quota", "Total quota", account.QuotaLimit, account.QuotaUsed, "")
+	windows = appendSub2APIQuotaWindow(windows, "daily-quota", "Daily quota", account.QuotaDailyLimit, account.QuotaDailyUsed, account.QuotaDailyResetAt)
+	windows = appendSub2APIQuotaWindow(windows, "weekly-quota", "Weekly quota", account.QuotaWeeklyLimit, account.QuotaWeeklyUsed, account.QuotaWeeklyResetAt)
+	return windows
+}
+
+func appendSub2APIUsageWindow(windows []cliproxyQuotaWindow, id, label string, progress *sub2APIUsageProgress) []cliproxyQuotaWindow {
+	if progress == nil {
+		return windows
+	}
+
+	resetAt := sub2APIResetAt(progress.ResetsAt, progress.RemainingSeconds)
+	return append(windows, cliproxyQuotaWindow{
+		ID:               id,
+		Label:            label,
+		RemainingPercent: sub2APIRemainingPercentFromUsed(progress.Utilization),
+		ResetLabel:       formatCliproxyQuotaResetTime(resetAt),
+		ResetAt:          resetAt,
+	})
+}
+
+func appendSub2APIQuotaWindow(windows []cliproxyQuotaWindow, id, label string, limit, used float64, resetAtValue string) []cliproxyQuotaWindow {
+	if limit <= 0 {
+		return windows
+	}
+
+	usedPercent := (used / limit) * 100
+	resetAt := sub2APIResetAt(resetAtValue, 0)
+	return append(windows, cliproxyQuotaWindow{
+		ID:               id,
+		Label:            label,
+		RemainingPercent: sub2APIRemainingPercentFromUsed(usedPercent),
+		ResetLabel:       formatCliproxyQuotaResetTime(resetAt),
+		ResetAt:          resetAt,
+	})
+}
+
+func sub2APIResetAt(resetAt string, remainingSeconds int) *time.Time {
+	if strings.TrimSpace(resetAt) != "" {
+		parsed, err := time.Parse(time.RFC3339, strings.TrimSpace(resetAt))
+		if err == nil {
+			return &parsed
+		}
+	}
+
+	if remainingSeconds > 0 {
+		t := time.Now().Add(time.Duration(remainingSeconds) * time.Second)
+		return &t
+	}
+
+	return nil
+}
+
+func sub2APIRemainingPercentFromUsed(usedPercent float64) *float64 {
+	remaining := 100 - usedPercent
+	remaining = math.Max(0, math.Min(100, remaining))
+	return &remaining
 }
 
 func cliproxyCodexPrimaryAndWeeklyWindows(rateLimit map[string]any) (map[string]any, map[string]any) {
