@@ -134,6 +134,12 @@
     background: var(--color-widget-background);
 }
 
+.zedo-todo-detail.is-creating {
+    background:
+        linear-gradient(180deg, color-mix(in srgb, var(--color-primary) 6%, var(--color-widget-background)), transparent 4.4rem),
+        var(--color-widget-background);
+}
+
 .zedo-todo-detail-header {
     justify-content: space-between;
     gap: 1rem;
@@ -143,6 +149,12 @@
     color: var(--color-text-highlight);
     font-size: var(--font-size-h4);
     font-weight: 700;
+}
+
+.zedo-todo-detail.is-creating .zedo-todo-detail-title {
+    padding-bottom: 0.25rem;
+    border-bottom: 2px solid color-mix(in srgb, var(--color-primary) 72%, transparent);
+    color: color-mix(in srgb, var(--color-primary) 78%, var(--color-text-highlight));
 }
 
 .zedo-todo-field-grid {
@@ -228,13 +240,51 @@
 
 .zedo-todo-primary-button {
     color: var(--color-background);
-    background: var(--color-primary);
+    border: 1px solid color-mix(in srgb, var(--color-primary) 72%, transparent);
+    background:
+        linear-gradient(180deg, color-mix(in srgb, white 14%, var(--color-primary)), color-mix(in srgb, black 8%, var(--color-primary)));
+    box-shadow:
+        inset 0 1px color-mix(in srgb, white 28%, transparent),
+        0 0.4rem 1rem color-mix(in srgb, var(--color-primary) 14%, transparent);
 }
 
 .zedo-todo-secondary-button {
     color: var(--color-text-highlight);
     border: 1px solid var(--color-widget-content-border);
     background: hsl(var(--bghs), calc(var(--scheme) (var(--scheme) var(--bgl)) + 2.5%));
+}
+
+.zedo-todo-new-button {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.45rem;
+    color: var(--color-text-highlight);
+    border-color: color-mix(in srgb, var(--color-primary) 44%, var(--color-widget-content-border));
+    background: color-mix(in srgb, var(--color-primary) 8%, hsl(var(--bghs), calc(var(--scheme) (var(--scheme) var(--bgl)) + 2.5%)));
+}
+
+.zedo-todo-new-button::before {
+    content: "";
+    display: inline-grid;
+    place-items: center;
+    width: 1.45rem;
+    height: 1.45rem;
+    border: 1px solid color-mix(in srgb, var(--color-primary) 56%, transparent);
+    border-radius: 0.45rem;
+    background:
+        linear-gradient(var(--color-primary), var(--color-primary)) center / 0.75rem 0.14rem no-repeat,
+        linear-gradient(var(--color-primary), var(--color-primary)) center / 0.14rem 0.75rem no-repeat,
+        color-mix(in srgb, var(--color-primary) 12%, transparent);
+}
+
+.zedo-todo-new-button:hover,
+.zedo-todo-new-button.is-active {
+    border-color: var(--color-primary);
+    background: color-mix(in srgb, var(--color-primary) 14%, hsl(var(--bghs), calc(var(--scheme) (var(--scheme) var(--bgl)) + 4%)));
+}
+
+.zedo-todo-new-button.is-active {
+    box-shadow: 0 0 0 2px color-mix(in srgb, var(--color-primary) 20%, transparent);
 }
 
 .zedo-todo-danger-button {

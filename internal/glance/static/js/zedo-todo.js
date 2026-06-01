@@ -494,8 +494,9 @@ class ZedoTodoPanel {
         refreshButton.addEventListener("click", () => this.load());
 
         const newButton = el("button", {
-            className: "zedo-todo-secondary-button",
+            className: `zedo-todo-secondary-button zedo-todo-new-button${this.isCreating ? " is-active" : ""}`,
             type: "button",
+            "aria-pressed": this.isCreating ? "true" : "false",
             disabled: this.busy
         }, this.t.newTask);
         newButton.addEventListener("click", () => {
@@ -614,7 +615,7 @@ class ZedoTodoPanel {
         }
 
         const task = this.selectedTask();
-        const form = el("form", { className: "zedo-todo-detail" },
+        const form = el("form", { className: `zedo-todo-detail${task ? "" : " is-creating"}` },
             el("input", { type: "hidden", name: "taskId", value: task ? task.id : "" }),
             el("div", { className: "zedo-todo-detail-header" },
                 el("div", { className: "zedo-todo-detail-title" }, task ? this.t.editTask : this.t.createTask),
