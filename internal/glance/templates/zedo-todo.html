@@ -1,0 +1,14 @@
+{{ template "widget-base.html" . }}
+
+{{ define "widget-content" }}
+<div
+    class="zedo-todo"
+    data-zedo-todo-widget
+    data-api-key="{{ .APIKey }}"
+    data-base-url="{{ .BaseURL }}"
+    data-limit="{{ .Limit }}"
+    data-language="{{ .Language }}"
+>
+    <div class="zedo-todo-loading color-subdue">Loading tasks...</div>
+</div>
+{{ end }}

@@ -28,6 +28,7 @@
   - [Custom API](#custom-api)
   - [Extension](#extension)
   - [Weather](#weather)
+  - [ZEDO Todo](#zedo-todo)
   - [Todo](#todo)
   - [Monitor](#monitor)
   - [Releases](#releases)
@@ -1935,6 +1936,47 @@ Otherwise, if set to `false` (which is the default) it'll be displayed as:
 ```
 Greenville, United States
 ```
+
+### ZEDO Todo
+
+A ZEDO Open API powered task panel. Unlike the `to-do` widget, this reads and writes remote ZEDO tasks instead of storing items in browser local storage.
+
+> [!WARNING]
+>
+> This widget calls the ZEDO Open API directly from the browser. The API key is included in the rendered page and browser requests.
+
+Example:
+
+```yaml
+- type: zedo-todo
+  api-key: ${ZEDO_API_KEY}
+  base-url: https://zedo-supabase.lalaze.com/functions/v1/open-api/v1
+  limit: 100
+  language: zh
+```
+
+The API key must have `tasks:read` and `tasks:write` scopes.
+
+#### Properties
+
+| Name | Type | Required | Default |
+| ---- | ---- | -------- | ------- |
+| api-key | string | yes | |
+| base-url | string | no | https://zedo-supabase.lalaze.com/functions/v1/open-api/v1 |
+| limit | integer | no | 100 |
+| language | string | no | zh |
+
+##### `api-key`
+The ZEDO Open API key used as a bearer token.
+
+##### `base-url`
+The ZEDO Open API v1 base URL.
+
+##### `limit`
+The maximum number of tasks to fetch. Values above `1000` are capped at `1000`.
+
+##### `language`
+The panel language. Possible values are `zh` and `en`.
 
 ### Todo
 

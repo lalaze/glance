@@ -1,0 +1,355 @@
+.zedo-todo {
+    display: grid;
+    gap: 1.2rem;
+}
+
+.zedo-todo-toolbar {
+    display: grid;
+    gap: 1rem;
+}
+
+.zedo-todo-quick-form,
+.zedo-todo-controls,
+.zedo-todo-task,
+.zedo-todo-task-heading,
+.zedo-todo-detail-header,
+.zedo-todo-detail-actions,
+.zedo-todo-check-row,
+.zedo-todo-subtask,
+.zedo-todo-subtask-add {
+    display: flex;
+    align-items: center;
+}
+
+.zedo-todo-quick-form,
+.zedo-todo-controls,
+.zedo-todo-task,
+.zedo-todo-detail-actions,
+.zedo-todo-subtask-add {
+    gap: 0.8rem;
+}
+
+.zedo-todo-controls {
+    flex-wrap: wrap;
+}
+
+.zedo-todo-body {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    gap: 1rem;
+}
+
+.zedo-todo-list {
+    display: grid;
+    gap: 0.7rem;
+}
+
+.zedo-todo-task {
+    min-width: 0;
+    align-items: flex-start;
+    padding: 0.85rem;
+    border: 1px solid var(--color-widget-content-border);
+    border-radius: var(--border-radius);
+    background: hsl(var(--bghs), calc(var(--scheme) (var(--scheme) var(--bgl)) + 1.5%));
+}
+
+.zedo-todo-task.is-selected {
+    border-color: var(--color-primary);
+}
+
+.zedo-todo-task.is-completed {
+    opacity: 0.72;
+}
+
+.zedo-todo-task-main {
+    min-width: 0;
+    flex: 1;
+}
+
+.zedo-todo-task-heading {
+    gap: 0.4rem;
+    min-width: 0;
+}
+
+.zedo-todo-task-title {
+    min-width: 0;
+    color: var(--color-text-highlight);
+    text-align: left;
+    font-size: var(--font-size-h4);
+    font-weight: 600;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.zedo-todo-task.is-completed .zedo-todo-task-title,
+.zedo-todo-subtask.is-completed .zedo-todo-subtask-title {
+    text-decoration: line-through;
+    color: var(--color-text-subdue);
+}
+
+.zedo-todo-task-meta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.35rem;
+    margin-top: 0.4rem;
+    color: var(--color-text-subdue);
+    font-size: var(--font-size-h5);
+}
+
+.zedo-todo-task-meta span,
+.zedo-todo-filter-button,
+.zedo-todo-secondary-button,
+.zedo-todo-primary-button,
+.zedo-todo-danger-button {
+    border-radius: 0.6rem;
+}
+
+.zedo-todo-task-meta span {
+    padding: 0.15rem 0.45rem;
+    background: var(--color-widget-background);
+    border: 1px solid var(--color-widget-content-border);
+}
+
+.zedo-todo-error,
+.zedo-todo-empty,
+.zedo-todo-loading,
+.zedo-todo-detail-empty {
+    padding: 0.9rem;
+    border: 1px solid var(--color-widget-content-border);
+    border-radius: var(--border-radius);
+}
+
+.zedo-todo-error {
+    background: color-mix(in srgb, var(--color-negative) 10%, transparent);
+}
+
+.zedo-todo-detail {
+    display: grid;
+    gap: 0.9rem;
+    align-content: start;
+    padding: 1rem;
+    border: 1px solid var(--color-widget-content-border);
+    border-radius: var(--border-radius);
+    background: var(--color-widget-background);
+}
+
+.zedo-todo-detail-header {
+    justify-content: space-between;
+    gap: 1rem;
+}
+
+.zedo-todo-detail-title {
+    color: var(--color-text-highlight);
+    font-size: var(--font-size-h4);
+    font-weight: 700;
+}
+
+.zedo-todo-field-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0.8rem;
+}
+
+.zedo-todo-field {
+    display: grid;
+    gap: 0.35rem;
+    min-width: 0;
+    color: var(--color-text-subdue);
+    font-size: var(--font-size-h5);
+    font-weight: 600;
+    text-transform: uppercase;
+}
+
+.zedo-todo-field input,
+.zedo-todo-field textarea,
+.zedo-todo-field select,
+.zedo-todo-quick-input,
+.zedo-todo-search,
+.zedo-todo-subtask-title,
+.zedo-todo-subtask-add input {
+    min-width: 0;
+    width: 100%;
+    color: var(--color-text-base);
+    background: hsl(var(--bghs), calc(var(--scheme) (var(--scheme) var(--bgl)) + 2.5%));
+    border: 1px solid var(--color-widget-content-border);
+    border-radius: 0.6rem;
+    padding: 0.65rem 0.75rem;
+    outline: none;
+}
+
+.zedo-todo-field textarea {
+    resize: vertical;
+}
+
+.zedo-todo-field input:focus,
+.zedo-todo-field textarea:focus,
+.zedo-todo-field select:focus,
+.zedo-todo-quick-input:focus,
+.zedo-todo-search:focus,
+.zedo-todo-subtask-title:focus,
+.zedo-todo-subtask-add input:focus {
+    border-color: var(--color-primary);
+}
+
+.zedo-todo-quick-input {
+    flex: 1;
+}
+
+.zedo-todo-search {
+    flex: 1 1 12rem;
+}
+
+.zedo-todo-filters {
+    display: inline-flex;
+    padding: 0.2rem;
+    border: 1px solid var(--color-widget-content-border);
+    border-radius: 0.7rem;
+    background: var(--color-widget-background);
+}
+
+.zedo-todo-filter-button {
+    padding: 0.45rem 0.7rem;
+    color: var(--color-text-subdue);
+}
+
+.zedo-todo-filter-button[aria-pressed="true"] {
+    color: var(--color-text-highlight);
+    background: hsl(var(--bghs), calc(var(--scheme) (var(--scheme) var(--bgl)) + 4%));
+}
+
+.zedo-todo-primary-button,
+.zedo-todo-secondary-button,
+.zedo-todo-danger-button {
+    min-height: 2.8rem;
+    padding: 0.5rem 0.85rem;
+    font-weight: 700;
+}
+
+.zedo-todo-primary-button {
+    color: var(--color-background);
+    background: var(--color-primary);
+}
+
+.zedo-todo-secondary-button {
+    color: var(--color-text-highlight);
+    border: 1px solid var(--color-widget-content-border);
+    background: hsl(var(--bghs), calc(var(--scheme) (var(--scheme) var(--bgl)) + 2.5%));
+}
+
+.zedo-todo-danger-button {
+    color: var(--color-negative);
+    border: 1px solid color-mix(in srgb, var(--color-negative) 45%, var(--color-widget-content-border));
+}
+
+.zedo-todo-icon-button,
+.zedo-todo-star-button,
+.zedo-todo-delete-button {
+    display: inline-grid;
+    place-items: center;
+    flex: 0 0 auto;
+    width: 2.5rem;
+    height: 2.5rem;
+    border-radius: 0.6rem;
+    color: var(--color-text-subdue);
+}
+
+.zedo-todo-icon-button:hover,
+.zedo-todo-star-button:hover,
+.zedo-todo-delete-button:hover {
+    color: var(--color-text-highlight);
+    background: hsl(var(--bghs), calc(var(--scheme) (var(--scheme) var(--bgl)) + 3%));
+}
+
+.zedo-todo-star-button[aria-pressed="true"] {
+    color: var(--color-primary);
+}
+
+.zedo-todo-delete-button:hover,
+.zedo-todo-danger-button:hover {
+    color: var(--color-negative);
+}
+
+.zedo-todo-icon-button svg,
+.zedo-todo-delete-button svg {
+    width: 1.45rem;
+    height: 1.45rem;
+}
+
+.zedo-todo-checkbox {
+    appearance: none;
+    flex: 0 0 auto;
+    width: 1.35rem;
+    height: 1.35rem;
+    margin-top: 0.2rem;
+    border: 2px solid var(--color-text-subdue);
+    border-radius: 0.35rem;
+    cursor: pointer;
+}
+
+.zedo-todo-checkbox:checked {
+    border-color: var(--color-primary);
+    background: var(--color-primary);
+    box-shadow: inset 0 0 0 0.25rem var(--color-widget-background);
+}
+
+.zedo-todo-check-row {
+    flex-wrap: wrap;
+    gap: 0.6rem;
+}
+
+.zedo-todo-check {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.45rem;
+    color: var(--color-text-base);
+}
+
+.zedo-todo-check input {
+    margin: 0;
+}
+
+.zedo-todo-subtasks {
+    display: grid;
+    gap: 0.75rem;
+}
+
+.zedo-todo-subtask-list {
+    display: grid;
+    gap: 0.45rem;
+}
+
+.zedo-todo-subtask {
+    gap: 0.45rem;
+}
+
+.zedo-todo-subtask-title {
+    flex: 1;
+}
+
+.zedo-todo button:disabled,
+.zedo-todo input:disabled,
+.zedo-todo textarea:disabled,
+.zedo-todo select:disabled {
+    cursor: not-allowed;
+    opacity: 0.6;
+}
+
+@container widget (min-width: 640px) {
+    .zedo-todo-body {
+        grid-template-columns: minmax(0, 1fr) minmax(18rem, 0.8fr);
+        align-items: start;
+    }
+}
+
+@container widget (max-width: 430px) {
+    .zedo-todo-quick-form,
+    .zedo-todo-subtask-add {
+        align-items: stretch;
+        flex-direction: column;
+    }
+
+    .zedo-todo-field-grid {
+        grid-template-columns: minmax(0, 1fr);
+    }
+}
