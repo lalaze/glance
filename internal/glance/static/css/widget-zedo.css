@@ -1,0 +1,392 @@
+.zedo {
+    display: grid;
+    gap: 1.1rem;
+}
+
+.zedo-toolbar,
+.zedo-stack,
+.zedo-section,
+.zedo-list,
+.zedo-detail,
+.zedo-subtasks {
+    display: grid;
+    gap: 0.8rem;
+}
+
+.zedo-controls,
+.zedo-form-row,
+.zedo-title-row,
+.zedo-detail-header,
+.zedo-actions,
+.zedo-check-row,
+.zedo-subtask,
+.zedo-inline-editor,
+.zedo-parse-preview {
+    display: flex;
+    align-items: center;
+    gap: 0.65rem;
+}
+
+.zedo-controls,
+.zedo-check-row,
+.zedo-actions,
+.zedo-parse-preview {
+    flex-wrap: wrap;
+}
+
+.zedo-grow {
+    flex: 1 1 12rem;
+}
+
+.zedo-master-detail {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    gap: 1rem;
+}
+
+.zedo-item {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.75rem;
+    min-width: 0;
+    padding: 0.8rem;
+    border: 1px solid var(--color-widget-content-border);
+    border-radius: var(--border-radius);
+    background: hsl(var(--bghs), calc(var(--scheme) (var(--scheme) var(--bgl)) + 1.5%));
+}
+
+.zedo-compact-item {
+    align-items: center;
+}
+
+.zedo-item.is-selected {
+    border-color: var(--color-primary);
+}
+
+.zedo-item.is-completed {
+    opacity: 0.72;
+}
+
+.zedo-item-main {
+    min-width: 0;
+    flex: 1;
+}
+
+.zedo-item-title,
+.zedo-detail-title,
+.zedo-section-title {
+    color: var(--color-text-highlight);
+    font-weight: 700;
+}
+
+.zedo-item-title {
+    min-width: 0;
+    max-width: 100%;
+    text-align: left;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.zedo-item.is-completed .zedo-item-title,
+.zedo-subtask.is-completed input {
+    text-decoration: line-through;
+    color: var(--color-text-subdue);
+}
+
+.zedo-detail-title {
+    font-size: var(--font-size-h4);
+}
+
+.zedo-section-title {
+    font-size: var(--font-size-h5);
+    text-transform: uppercase;
+}
+
+.zedo-meta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.35rem;
+    margin-top: 0.4rem;
+    color: var(--color-text-subdue);
+    font-size: var(--font-size-h5);
+}
+
+.zedo-pill {
+    min-width: 0;
+    max-width: 100%;
+    padding: 0.15rem 0.45rem;
+    border: 1px solid var(--color-widget-content-border);
+    border-radius: 0.55rem;
+    background: var(--color-widget-background);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.zedo-error,
+.zedo-empty,
+.zedo-loading {
+    padding: 0.9rem;
+    border: 1px solid var(--color-widget-content-border);
+    border-radius: var(--border-radius);
+}
+
+.zedo-error {
+    background: color-mix(in srgb, var(--color-negative) 10%, transparent);
+}
+
+.zedo-warning {
+    padding: 0.8rem;
+    border: 1px solid color-mix(in srgb, var(--color-negative) 35%, var(--color-widget-content-border));
+    border-radius: var(--border-radius);
+}
+
+.zedo-detail,
+.zedo-review-card,
+.zedo-stat {
+    align-content: start;
+    padding: 1rem;
+    border: 1px solid var(--color-widget-content-border);
+    border-radius: var(--border-radius);
+    background: var(--color-widget-background);
+}
+
+.zedo-detail-header {
+    justify-content: space-between;
+}
+
+.zedo-field-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0.75rem;
+}
+
+.zedo-field {
+    display: grid;
+    gap: 0.35rem;
+    min-width: 0;
+    color: var(--color-text-subdue);
+    font-size: var(--font-size-h5);
+    font-weight: 700;
+    text-transform: uppercase;
+}
+
+.zedo-input,
+.zedo-search {
+    min-width: 0;
+    width: 100%;
+    color: var(--color-text-base);
+    background: hsl(var(--bghs), calc(var(--scheme) (var(--scheme) var(--bgl)) + 2.5%));
+    border: 1px solid var(--color-widget-content-border);
+    border-radius: 0.6rem;
+    padding: 0.62rem 0.72rem;
+    outline: none;
+}
+
+textarea.zedo-input {
+    resize: vertical;
+}
+
+.zedo-input:focus,
+.zedo-search:focus {
+    border-color: var(--color-primary);
+}
+
+.zedo-search {
+    flex: 1 1 12rem;
+}
+
+.zedo-segmented {
+    display: inline-flex;
+    padding: 0.2rem;
+    border: 1px solid var(--color-widget-content-border);
+    border-radius: 0.7rem;
+    background: var(--color-widget-background);
+}
+
+.zedo-segment,
+.zedo-toggle {
+    min-height: 2.35rem;
+    padding: 0.42rem 0.68rem;
+    border-radius: 0.55rem;
+    color: var(--color-text-subdue);
+}
+
+.zedo-segment[aria-pressed="true"],
+.zedo-toggle[aria-pressed="true"] {
+    color: var(--color-text-highlight);
+    background: hsl(var(--bghs), calc(var(--scheme) (var(--scheme) var(--bgl)) + 4%));
+}
+
+.zedo-button {
+    min-height: 2.55rem;
+    padding: 0.48rem 0.82rem;
+    border-radius: 0.6rem;
+    font-weight: 700;
+}
+
+.zedo-button-primary {
+    color: var(--color-background);
+    border: 1px solid color-mix(in srgb, var(--color-primary) 72%, transparent);
+    background: var(--color-primary);
+}
+
+.zedo-button-secondary {
+    color: var(--color-text-highlight);
+    border: 1px solid var(--color-widget-content-border);
+    background: hsl(var(--bghs), calc(var(--scheme) (var(--scheme) var(--bgl)) + 2.5%));
+}
+
+.zedo-button-danger {
+    color: var(--color-negative);
+    border: 1px solid color-mix(in srgb, var(--color-negative) 45%, var(--color-widget-content-border));
+}
+
+.zedo-icon-button,
+.zedo-star {
+    display: inline-grid;
+    place-items: center;
+    flex: 0 0 auto;
+    width: 2.45rem;
+    height: 2.45rem;
+    border-radius: 0.6rem;
+    color: var(--color-text-subdue);
+}
+
+.zedo-icon-button:hover,
+.zedo-star:hover {
+    color: var(--color-text-highlight);
+    background: hsl(var(--bghs), calc(var(--scheme) (var(--scheme) var(--bgl)) + 3%));
+}
+
+.zedo-star[aria-pressed="true"] {
+    color: var(--color-primary);
+}
+
+.zedo-icon-button svg {
+    width: 1.4rem;
+    height: 1.4rem;
+}
+
+.zedo-checkbox {
+    appearance: none;
+    flex: 0 0 auto;
+    width: 1.32rem;
+    height: 1.32rem;
+    margin-top: 0.2rem;
+    border: 2px solid var(--color-text-subdue);
+    border-radius: 0.35rem;
+    cursor: pointer;
+}
+
+.zedo-checkbox:checked {
+    border-color: var(--color-primary);
+    background: var(--color-primary);
+    box-shadow: inset 0 0 0 0.25rem var(--color-widget-background);
+}
+
+.zedo-check {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.45rem;
+    color: var(--color-text-base);
+}
+
+.zedo-subtask {
+    min-width: 0;
+}
+
+.zedo-swatch {
+    flex: 0 0 auto;
+    width: 1.2rem;
+    height: 1.2rem;
+    margin-top: 0.2rem;
+    border: 1px solid var(--color-widget-content-border);
+    border-radius: 0.35rem;
+    background: var(--color-primary);
+}
+
+.zedo-review-card {
+    display: grid;
+    gap: 1rem;
+}
+
+.zedo-review-answer {
+    padding: 0.8rem;
+    border: 1px solid var(--color-widget-content-border);
+    border-radius: 0.6rem;
+    color: var(--color-text-highlight);
+}
+
+.zedo-focus-timer {
+    text-align: center;
+}
+
+.zedo-timer-display {
+    color: var(--color-text-highlight);
+    font-size: 3rem;
+    font-weight: 800;
+    line-height: 1;
+}
+
+.zedo-stat-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(8rem, 1fr));
+    gap: 0.75rem;
+}
+
+.zedo-stat {
+    display: grid;
+    gap: 0.35rem;
+}
+
+.zedo-stat span {
+    color: var(--color-text-subdue);
+    font-size: var(--font-size-h5);
+}
+
+.zedo-stat strong {
+    color: var(--color-text-highlight);
+    font-size: var(--font-size-h3);
+}
+
+.zedo-time-input {
+    width: 6.5rem;
+}
+
+.zedo-min-input {
+    width: 5rem;
+}
+
+.zedo button:disabled,
+.zedo input:disabled,
+.zedo textarea:disabled,
+.zedo select:disabled {
+    cursor: not-allowed;
+    opacity: 0.6;
+}
+
+@container widget (min-width: 680px) {
+    .zedo-master-detail {
+        grid-template-columns: minmax(0, 1fr) minmax(18rem, 0.85fr);
+        align-items: start;
+    }
+}
+
+@container widget (max-width: 430px) {
+    .zedo-form-row,
+    .zedo-inline-editor {
+        align-items: stretch;
+        flex-direction: column;
+    }
+
+    .zedo-field-grid {
+        grid-template-columns: minmax(0, 1fr);
+    }
+
+    .zedo-timer-display {
+        font-size: 2.4rem;
+    }
+}
+

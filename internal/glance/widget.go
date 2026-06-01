@@ -81,8 +81,28 @@ func newWidget(widgetType string) (widget, error) {
 		w = &dockerContainersWidget{}
 	case "server-stats":
 		w = &serverStatsWidget{}
+	case "zedo-today":
+		w = newZedoWidget("today")
+	case "zedo-tasks":
+		w = newZedoWidget("tasks")
+	case "zedo-categories":
+		w = newZedoWidget("categories")
+	case "zedo-memory":
+		w = newZedoWidget("memory")
+	case "zedo-habits":
+		w = newZedoWidget("habits")
+	case "zedo-focus":
+		w = newZedoWidget("focus")
+	case "zedo-anniversaries":
+		w = newZedoWidget("anniversaries")
+	case "zedo-stats":
+		w = newZedoWidget("stats")
+	case "zedo-review":
+		w = newZedoWidget("review")
+	case "zedo-schedule":
+		w = newZedoWidget("schedule")
 	case "zedo-todo":
-		w = &zedoTodoWidget{}
+		w = newZedoWidget("tasks")
 	case "to-do":
 		w = &todoWidget{}
 	default:

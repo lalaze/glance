@@ -28,7 +28,7 @@
   - [Custom API](#custom-api)
   - [Extension](#extension)
   - [Weather](#weather)
-  - [ZEDO Todo](#zedo-todo)
+  - [ZEDO](#zedo)
   - [Todo](#todo)
   - [Monitor](#monitor)
   - [Releases](#releases)
@@ -1937,25 +1937,51 @@ Otherwise, if set to `false` (which is the default) it'll be displayed as:
 Greenville, United States
 ```
 
-### ZEDO Todo
+### ZEDO
 
-A ZEDO Open API powered task panel. Unlike the `to-do` widget, this reads and writes remote ZEDO tasks instead of storing items in browser local storage.
+ZEDO Open API powered widgets. Unlike the `to-do` widget, these read and write remote ZEDO data instead of storing items in browser local storage.
 
 > [!WARNING]
 >
-> This widget calls the ZEDO Open API directly from the browser. The API key is included in the rendered page and browser requests.
+> These widgets call the ZEDO Open API directly from the browser. The API key is included in the rendered page and browser requests.
 
 Example:
 
 ```yaml
-- type: zedo-todo
+- type: zedo-tasks
   api-key: ${ZEDO_API_KEY}
   base-url: https://zedo-supabase.lalaze.com/functions/v1/open-api/v1
   limit: 100
   language: zh
+
+- type: zedo-review
+  api-key: ${ZEDO_API_KEY}
+  mode: daily
+  collections: [tasks, memory, habits, anniversaries]
+
+- type: zedo-schedule
+  api-key: ${ZEDO_API_KEY}
+  date: today
+  collections: [tasks, memory, habits]
 ```
 
-The API key must have `tasks:read` and `tasks:write` scopes.
+Available widget types:
+
+| Type | Description |
+| ---- | ----------- |
+| zedo-today | Today workspace |
+| zedo-tasks | Tasks, quick add and subtasks |
+| zedo-categories | Category management |
+| zedo-memory | Memory decks and cards |
+| zedo-habits | Habits, check-ins and schedule overrides |
+| zedo-focus | Focus timer and focus sessions |
+| zedo-anniversaries | Anniversaries |
+| zedo-stats | Aggregate stats |
+| zedo-review | Daily or weekly review |
+| zedo-schedule | Schedule planning |
+| zedo-todo | Backwards-compatible alias for `zedo-tasks` |
+
+The API key must have the scopes required by the inserted widgets, such as `tasks:read`, `tasks:write`, `memory:read`, `memory:write`, `habits:read`, `habits:write`, `anniversaries:read`, `anniversaries:write`, `focus:read`, `focus:write`, `categories:read`, `categories:write`, and `stats:read`.
 
 #### Properties
 
@@ -1965,6 +1991,10 @@ The API key must have `tasks:read` and `tasks:write` scopes.
 | base-url | string | no | https://zedo-supabase.lalaze.com/functions/v1/open-api/v1 |
 | limit | integer | no | 100 |
 | language | string | no | zh |
+| sections | array | no | tasks, memory, habits, anniversaries |
+| collections | array | no | tasks, memory, habits, anniversaries |
+| mode | string | no | daily |
+| date | string | no | today |
 
 ##### `api-key`
 The ZEDO Open API key used as a bearer token.
@@ -1977,6 +2007,18 @@ The maximum number of tasks to fetch. Values above `1000` are capped at `1000`.
 
 ##### `language`
 The panel language. Possible values are `zh` and `en`.
+
+##### `sections`
+For `zedo-today`, controls which sections are shown. Possible values are `tasks`, `memory`, `habits`, and `anniversaries`.
+
+##### `collections`
+For `zedo-review` and `zedo-schedule`, controls which collections are requested. `zedo-schedule` defaults to `tasks`, `memory`, and `habits`.
+
+##### `mode`
+For `zedo-review`, possible values are `daily` and `weekly`.
+
+##### `date`
+For `zedo-schedule`, use `today` or a `YYYY-MM-DD` date.
 
 ### Todo
 

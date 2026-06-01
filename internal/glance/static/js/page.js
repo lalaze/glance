@@ -876,14 +876,14 @@ async function setupTodos() {
     }
 }
 
-async function setupZedoTodos() {
-    const elems = Array.from(document.getElementsByClassName("zedo-todo"));
+async function setupZedoWidgets() {
+    const elems = Array.from(document.querySelectorAll("[data-zedo-widget]"));
     if (elems.length == 0) return;
 
-    const zedoTodo = await import ('./zedo-todo.js');
+    const zedo = await import ('./zedo.js');
 
     for (let i = 0; i < elems.length; i++) {
-        zedoTodo.default(elems[i]);
+        zedo.default(elems[i]);
     }
 }
 
@@ -992,7 +992,7 @@ async function setupPage() {
         setupClocks()
         await setupCalendars();
         await setupTodos();
-        await setupZedoTodos();
+        await setupZedoWidgets();
         setupCarousels();
         setupSearchBoxes();
         setupCollapsibleLists();

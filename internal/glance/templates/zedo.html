@@ -1,0 +1,19 @@
+{{ template "widget-base.html" . }}
+
+{{ define "widget-content" }}
+<div
+    class="zedo zedo-{{ .Module }}"
+    data-zedo-widget
+    data-module="{{ .Module }}"
+    data-api-key="{{ .APIKey }}"
+    data-base-url="{{ .BaseURL }}"
+    data-limit="{{ .Limit }}"
+    data-language="{{ .Language }}"
+    data-sections="{{ .SectionsCSV }}"
+    data-collections="{{ .CollectionsCSV }}"
+    data-mode="{{ .Mode }}"
+    data-date="{{ .Date }}"
+>
+    <div class="zedo-loading color-subdue">Loading ZEDO...</div>
+</div>
+{{ end }}
