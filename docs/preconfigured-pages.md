@@ -78,6 +78,92 @@ Pull requests with your page configurations are welcome!
 ```
 </details>
 
+## ZEDO
+
+A full-width command center for every ZEDO Open API widget. The task inbox sits at the top for quick capture, while the rest of the workspace is arranged into aligned workflow rows instead of one long vertical list.
+
+This page requires `ZEDO_API_KEY` to be set in the environment before Glance starts.
+
+<details>
+<summary>View config</summary>
+
+```yaml
+define:
+  - &zedo-common
+    api-key: ${ZEDO_API_KEY}
+    base-url: https://zedo-supabase.lalaze.com/functions/v1/open-api/v1
+    language: zh
+
+pages:
+  - name: ZEDO
+    slug: zedo
+    width: wide
+    desktop-navigation-width: wide
+    show-mobile-header: true
+    head-widgets:
+      - type: zedo-tasks
+        title: Inbox
+        limit: 160
+        <<: *zedo-common
+
+    columns:
+      - size: full
+        widgets:
+          - type: split-column
+            css-class: zedo-layout-row zedo-layout-row-primary
+            max-columns: 3
+            widgets:
+              - type: zedo-today
+                title: Today
+                sections: [tasks, memory, habits, anniversaries]
+                <<: *zedo-common
+
+              - type: zedo-schedule
+                title: Schedule
+                date: today
+                collections: [tasks, memory, habits]
+                <<: *zedo-common
+
+              - type: zedo-focus
+                title: Focus
+                <<: *zedo-common
+
+          - type: split-column
+            css-class: zedo-layout-row zedo-layout-row-secondary
+            max-columns: 4
+            widgets:
+              - type: zedo-habits
+                title: Habits
+                <<: *zedo-common
+
+              - type: zedo-memory
+                title: Memory
+                <<: *zedo-common
+
+              - type: zedo-review
+                title: Daily Review
+                mode: daily
+                collections: [tasks, memory, habits, anniversaries]
+                <<: *zedo-common
+
+              - type: zedo-anniversaries
+                title: Anniversaries
+                <<: *zedo-common
+
+          - type: split-column
+            css-class: zedo-layout-row zedo-layout-row-admin
+            max-columns: 2
+            widgets:
+              - type: zedo-categories
+                title: Categories
+                <<: *zedo-common
+
+              - type: zedo-stats
+                title: Stats
+                <<: *zedo-common
+```
+</details>
+
 ## Markets
 
 ![](images/markets-page-preview.png)
