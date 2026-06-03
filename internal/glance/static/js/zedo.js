@@ -352,16 +352,18 @@ class ZedoPanel {
     }
 
     async mutate(callback) {
-        if (this.busy) return;
+        if (this.busy) return false;
         this.busy = true;
         this.error = null;
         this.render();
         try {
             await callback();
             await this.load();
+            return true;
         } catch (err) {
             this.error = getErrorMessage(err);
             this.render();
+            return false;
         } finally {
             this.busy = false;
             this.render();
@@ -397,6 +399,7 @@ class ZedoTasksPanel extends ZedoPanel {
         this.filter = "active";
         this.selectedId = null;
         this.creating = false;
+        this.quickAddText = "";
         this.parsedQuickAdd = null;
     }
 
@@ -428,7 +431,11 @@ class ZedoTasksPanel extends ZedoPanel {
             className: "zedo-input zedo-grow",
             type: "text",
             placeholder: this.t.quickAddPlaceholder,
+            value: this.quickAddText,
             disabled: this.busy
+        });
+        quickInput.addEventListener("input", event => {
+            this.quickAddText = event.target.value;
         });
         const quickForm = el("form", { className: "zedo-form-row" },
             quickInput,
@@ -436,11 +443,14 @@ class ZedoTasksPanel extends ZedoPanel {
             button(this.t.parse, "secondary", this.busy, "button")
         );
         onFormSubmit(quickForm, () => {
-            const value = quickInput.value;
-            quickInput.value = "";
+            this.quickAddText = quickInput.value;
+            const value = this.quickAddText;
             this.quickAdd(value);
         });
-        quickForm.querySelector("button[type='button']").addEventListener("click", () => this.parseQuickAdd(quickInput.value));
+        quickForm.querySelector("button[type='button']").addEventListener("click", () => {
+            this.quickAddText = quickInput.value;
+            this.parseQuickAdd(this.quickAddText);
+        });
 
         const search = this.renderSearch();
         const filters = segmented([
@@ -607,10 +617,17 @@ class ZedoTasksPanel extends ZedoPanel {
     async quickAdd(text) {
         const value = text.trim();
         if (!value) return;
-        await this.mutate(() => this.request("/tasks/quick-add", {
-            method: "POST",
-            body: { text: value, utcOffsetMinutes: -new Date().getTimezoneOffset() }
-        }));
+        let createdTask = null;
+        const success = await this.mutate(async () => {
+            createdTask = await this.createTaskFromQuickAdd(value);
+            this.quickAddText = "";
+            this.parsedQuickAdd = null;
+            await delay(200);
+        });
+        if (success && createdTask) {
+            this.insertCreatedTask(createdTask);
+            this.render();
+        }
     }
 
     async parseQuickAdd(text) {
@@ -622,6 +639,42 @@ class ZedoTasksPanel extends ZedoPanel {
                 body: { text: value, utcOffsetMinutes: -new Date().getTimezoneOffset() }
             });
         });
+    }
+
+    async createTaskFromQuickAdd(value) {
+        try {
+            const response = await this.request("/tasks/quick-add", {
+                method: "POST",
+                body: { text: value, utcOffsetMinutes: -new Date().getTimezoneOffset() }
+            });
+            return extractTaskFromResponse(response);
+        } catch {
+            const now = new Date().toISOString();
+            const response = await this.request("/tasks", {
+                method: "POST",
+                body: {
+                    title: value,
+                    notes: "",
+                    priority: "medium",
+                    focusEnabled: false,
+                    starred: false,
+                    reminderEnabled: false,
+                    recurrence: null,
+                    completed: false,
+                    completedAt: null,
+                    createdAt: now,
+                    updatedAt: now
+                }
+            });
+            return extractTaskFromResponse(response);
+        }
+    }
+
+    insertCreatedTask(task) {
+        if (!task.id || this.tasks.some(item => item.id === task.id)) return;
+        task.subtasks = task.subtasks || [];
+        this.tasks = [task, ...this.tasks].slice(0, this.limit);
+        this.subtasksByTask.set(task.id, task.subtasks);
     }
 
     async saveTask(form) {
@@ -1939,6 +1992,47 @@ function getFirstArray(value, paths) {
     return Array.isArray(value) ? value : [];
 }
 
+function getFirstObject(value, paths) {
+    for (const path of paths) {
+        const result = getByPath(value, path);
+        if (isObject(result)) return result;
+    }
+    return isObject(value) ? value : null;
+}
+
+function isObject(value) {
+    return value !== null && typeof value === "object" && !Array.isArray(value);
+}
+
+function extractTaskFromResponse(response) {
+    const candidates = [
+        getFirstObject(response, [
+            "task",
+            "todo",
+            "item",
+            "data.task",
+            "data.todo",
+            "data.item"
+        ]),
+        ...getFirstArray(response, [
+            "tasks",
+            "todos",
+            "items",
+            "data.tasks",
+            "data.todos",
+            "data.items"
+        ]),
+        getFirstObject(response, ["data"]),
+        response
+    ];
+    for (const candidate of candidates) {
+        if (!isObject(candidate)) continue;
+        const task = normalizeTask(candidate);
+        if (task.id) return task;
+    }
+    return null;
+}
+
 function normalizeTask(task) {
     return {
         id: stringValue(task.id ?? task.sourceId),
@@ -2116,6 +2210,10 @@ function uniqueById(items) {
 
 function unique(items) {
     return [...new Set(items)];
+}
+
+function delay(milliseconds) {
+    return new Promise(resolve => setTimeout(resolve, milliseconds));
 }
 
 function csvList(value, fallback) {
