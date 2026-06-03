@@ -280,6 +280,7 @@ class ZedoPanel {
             className: "zedo-input zedo-search",
             type: "search",
             placeholder: this.t.search,
+            "aria-label": this.t.search,
             value: this.search
         });
         input.addEventListener("compositionstart", () => {
@@ -297,7 +298,10 @@ class ZedoPanel {
             if (this.searchComposing || event.isComposing) return;
             this.render();
         });
-        return input;
+        const icon = iconSvg("search");
+        icon.classList.add("zedo-search-icon");
+        icon.setAttribute("aria-hidden", "true");
+        return el("div", { className: "zedo-search-field" }, icon, input);
     }
 
     saveSearchSelection(input) {
@@ -444,13 +448,12 @@ class ZedoTasksPanel extends ZedoPanel {
         );
         onFormSubmit(quickForm, () => {
             this.quickAddText = quickInput.value;
-            const quickValue = this.quickAddText.trim();
-            const searchValue = this.search.trim();
-            this.quickAdd(quickValue || searchValue, { clearSearch: !quickValue && !!searchValue });
+            const value = this.quickAddText;
+            this.quickAdd(value);
         });
         quickForm.querySelector("button[type='button']").addEventListener("click", () => {
             this.quickAddText = quickInput.value;
-            this.parseQuickAdd(this.quickAddText.trim() || this.search.trim());
+            this.parseQuickAdd(this.quickAddText);
         });
 
         const search = this.renderSearch();
@@ -615,7 +618,7 @@ class ZedoTasksPanel extends ZedoPanel {
         );
     }
 
-    async quickAdd(text, options = {}) {
+    async quickAdd(text) {
         const value = text.trim();
         if (!value) return;
         let createdTask = null;
@@ -623,12 +626,6 @@ class ZedoTasksPanel extends ZedoPanel {
             createdTask = await this.createTaskFromQuickAdd(value);
             this.quickAddText = "";
             this.parsedQuickAdd = null;
-            if (options.clearSearch) {
-                this.search = "";
-                this.searchFocused = false;
-                this.searchSelectionStart = null;
-                this.searchSelectionEnd = null;
-            }
             await delay(200);
         });
         if (success && createdTask) {
@@ -1877,6 +1874,7 @@ function iconSvg(icon) {
     const svg = svgElement("svg", { viewBox: "0 0 24 24", fill: "none", stroke: "currentColor", "stroke-width": "1.8", "stroke-linecap": "round", "stroke-linejoin": "round" });
     const paths = {
         refresh: ["M21 12a9 9 0 0 1-15.6 6.1", "M3 12A9 9 0 0 1 18.6 5.9", "M18.5 2.8v3.4h-3.4", "M5.5 21.2v-3.4h3.4"],
+        search: ["m21 21-4.35-4.35", "M10.5 18a7.5 7.5 0 1 1 0-15 7.5 7.5 0 0 1 0 15Z"],
         trash: ["M3 6h18", "M8 6V4h8v2", "M6 6l1 15h10l1-15"],
         edit: ["M4 20h4l11-11a2.8 2.8 0 0 0-4-4L4 16v4Z", "M13 6l5 5"],
         x: ["M6 6l12 12", "M18 6 6 18"],

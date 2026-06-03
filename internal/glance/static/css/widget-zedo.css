@@ -270,6 +270,30 @@ textarea.zedo-input {
     flex: 1 1 12rem;
 }
 
+.zedo-search-field {
+    position: relative;
+    flex: 1 1 13rem;
+    min-width: min(100%, 13rem);
+}
+
+.zedo-search-field .zedo-search {
+    padding-left: 2.35rem;
+    border-color: color-mix(in srgb, var(--color-primary) 45%, var(--color-widget-content-border));
+    background: color-mix(in srgb, var(--color-primary) 8%, hsl(var(--bghs), calc(var(--scheme) (var(--scheme) var(--bgl)) + 2.5%)));
+}
+
+.zedo-search-icon {
+    position: absolute;
+    left: 0.78rem;
+    top: 50%;
+    width: 1rem;
+    height: 1rem;
+    color: var(--color-primary);
+    opacity: 0.85;
+    pointer-events: none;
+    transform: translateY(-50%);
+}
+
 .zedo-segmented {
     display: inline-flex;
     padding: 0.2rem;
