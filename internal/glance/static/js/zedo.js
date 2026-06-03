@@ -435,8 +435,7 @@ class ZedoTasksPanel extends ZedoPanel {
             button(this.t.add, "primary", this.busy),
             button(this.t.parse, "secondary", this.busy, "button")
         );
-        quickForm.addEventListener("submit", event => {
-            event.preventDefault();
+        onFormSubmit(quickForm, () => {
             const value = quickInput.value;
             quickInput.value = "";
             this.quickAdd(value);
@@ -553,8 +552,7 @@ class ZedoTasksPanel extends ZedoPanel {
                 task ? button(this.t.delete, "danger", this.busy, "button").tap(item => item.addEventListener("click", () => this.deleteTask(task.id))) : ""
             )
         );
-        form.addEventListener("submit", event => {
-            event.preventDefault();
+        onFormSubmit(form, () => {
             this.saveTask(form);
         });
         return form;
@@ -769,8 +767,7 @@ class ZedoCategoriesPanel extends ZedoPanel {
                 })) : ""
             )
         );
-        form.addEventListener("submit", event => {
-            event.preventDefault();
+        onFormSubmit(form, () => {
             this.saveCategory(form);
         });
         return form;
@@ -932,8 +929,7 @@ class ZedoMemoryPanel extends ZedoPanel {
                 this.render();
             })))
         );
-        form.addEventListener("submit", event => {
-            event.preventDefault();
+        onFormSubmit(form, () => {
             this.saveDeck(form);
         });
         return form;
@@ -959,8 +955,7 @@ class ZedoMemoryPanel extends ZedoPanel {
                 this.render();
             })))
         );
-        form.addEventListener("submit", event => {
-            event.preventDefault();
+        onFormSubmit(form, () => {
             this.saveCard(form);
         });
         return form;
@@ -1145,8 +1140,7 @@ class ZedoHabitsPanel extends ZedoPanel {
                 this.render();
             })))
         );
-        form.addEventListener("submit", event => {
-            event.preventDefault();
+        onFormSubmit(form, () => {
             this.saveHabit(form);
         });
         return form;
@@ -1190,8 +1184,7 @@ class ZedoHabitsPanel extends ZedoPanel {
                 this.render();
             }))
         );
-        form.addEventListener("submit", event => {
-            event.preventDefault();
+        onFormSubmit(form, () => {
             this.saveOverride(habitId, form);
         });
         return form;
@@ -1371,8 +1364,7 @@ class ZedoFocusPanel extends ZedoPanel {
                 }))
             )
         );
-        form.addEventListener("submit", event => {
-            event.preventDefault();
+        onFormSubmit(form, () => {
             this.saveSession(form);
         });
         return form;
@@ -1531,8 +1523,7 @@ class ZedoAnniversariesPanel extends ZedoPanel {
                 this.render();
             })))
         );
-        form.addEventListener("submit", event => {
-            event.preventDefault();
+        onFormSubmit(form, () => {
             this.saveAnniversary(form);
         });
         return form;
@@ -1801,6 +1792,7 @@ function el(tag, attrs = {}, ...children) {
         callback(element);
         return element;
     };
+    if (tag === "input" || tag === "textarea") trackComposition(element);
     return element;
 }
 
@@ -1904,6 +1896,29 @@ function cssColor(value) {
 
 function isComposingEvent(event) {
     return event.isComposing || event.keyCode === 229;
+}
+
+function trackComposition(input) {
+    input.dataset.zedoComposing = "false";
+    input.addEventListener("compositionstart", () => {
+        input.dataset.zedoComposing = "true";
+    });
+    input.addEventListener("compositionend", () => {
+        input.dataset.zedoComposing = "false";
+    });
+}
+
+function onFormSubmit(form, callback) {
+    form.addEventListener("submit", event => {
+        event.preventDefault();
+        if (isFormComposing(form)) return;
+        callback(event);
+    });
+}
+
+function isFormComposing(form) {
+    const activeElement = form.ownerDocument.activeElement;
+    return form.contains(activeElement) && activeElement.dataset.zedoComposing === "true";
 }
 
 function getByPath(value, path) {
