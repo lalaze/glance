@@ -444,12 +444,13 @@ class ZedoTasksPanel extends ZedoPanel {
         );
         onFormSubmit(quickForm, () => {
             this.quickAddText = quickInput.value;
-            const value = this.quickAddText;
-            this.quickAdd(value);
+            const quickValue = this.quickAddText.trim();
+            const searchValue = this.search.trim();
+            this.quickAdd(quickValue || searchValue, { clearSearch: !quickValue && !!searchValue });
         });
         quickForm.querySelector("button[type='button']").addEventListener("click", () => {
             this.quickAddText = quickInput.value;
-            this.parseQuickAdd(this.quickAddText);
+            this.parseQuickAdd(this.quickAddText.trim() || this.search.trim());
         });
 
         const search = this.renderSearch();
@@ -614,7 +615,7 @@ class ZedoTasksPanel extends ZedoPanel {
         );
     }
 
-    async quickAdd(text) {
+    async quickAdd(text, options = {}) {
         const value = text.trim();
         if (!value) return;
         let createdTask = null;
@@ -622,6 +623,12 @@ class ZedoTasksPanel extends ZedoPanel {
             createdTask = await this.createTaskFromQuickAdd(value);
             this.quickAddText = "";
             this.parsedQuickAdd = null;
+            if (options.clearSearch) {
+                this.search = "";
+                this.searchFocused = false;
+                this.searchSelectionStart = null;
+                this.searchSelectionEnd = null;
+            }
             await delay(200);
         });
         if (success && createdTask) {
