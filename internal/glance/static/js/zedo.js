@@ -1909,16 +1909,22 @@ function trackComposition(input) {
 }
 
 function onFormSubmit(form, callback) {
+    form.dataset.zedoIgnoreSubmit = "false";
+    form.addEventListener("keydown", event => {
+        if (event.key !== "Enter" || !isComposingEvent(event)) return;
+        form.dataset.zedoIgnoreSubmit = "true";
+        setTimeout(() => {
+            form.dataset.zedoIgnoreSubmit = "false";
+        }, 0);
+    }, true);
     form.addEventListener("submit", event => {
         event.preventDefault();
-        if (isFormComposing(form)) return;
+        if (form.dataset.zedoIgnoreSubmit === "true") {
+            form.dataset.zedoIgnoreSubmit = "false";
+            return;
+        }
         callback(event);
     });
-}
-
-function isFormComposing(form) {
-    const activeElement = form.ownerDocument.activeElement;
-    return form.contains(activeElement) && activeElement.dataset.zedoComposing === "true";
 }
 
 function getByPath(value, path) {
