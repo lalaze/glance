@@ -228,6 +228,7 @@ class ZedoPanel {
         this.searchFocused = false;
         this.searchSelectionStart = null;
         this.searchSelectionEnd = null;
+        this.searchComposing = false;
     }
 
     async init() {
@@ -281,14 +282,28 @@ class ZedoPanel {
             placeholder: this.t.search,
             value: this.search
         });
+        input.addEventListener("compositionstart", () => {
+            this.searchComposing = true;
+        });
+        input.addEventListener("compositionend", event => {
+            this.searchComposing = false;
+            this.search = event.target.value;
+            this.saveSearchSelection(event.target);
+            this.render();
+        });
         input.addEventListener("input", event => {
             this.search = event.target.value;
-            this.searchFocused = true;
-            this.searchSelectionStart = event.target.selectionStart;
-            this.searchSelectionEnd = event.target.selectionEnd;
+            this.saveSearchSelection(event.target);
+            if (this.searchComposing || event.isComposing) return;
             this.render();
         });
         return input;
+    }
+
+    saveSearchSelection(input) {
+        this.searchFocused = true;
+        this.searchSelectionStart = input.selectionStart;
+        this.searchSelectionEnd = input.selectionEnd;
     }
 
     restoreSearchFocus() {
@@ -555,7 +570,7 @@ class ZedoTasksPanel extends ZedoPanel {
         };
         add.addEventListener("click", submit);
         input.addEventListener("keydown", event => {
-            if (event.key === "Enter") {
+            if (event.key === "Enter" && !isComposingEvent(event)) {
                 event.preventDefault();
                 submit();
             }
@@ -572,7 +587,7 @@ class ZedoTasksPanel extends ZedoPanel {
         checkbox.addEventListener("change", () => this.patchSubtask(taskId, subtask.id, { completed: checkbox.checked }));
         const title = el("input", { className: "zedo-input zedo-grow", type: "text", value: subtask.title, disabled: this.busy });
         title.addEventListener("keydown", event => {
-            if (event.key === "Enter") {
+            if (event.key === "Enter" && !isComposingEvent(event)) {
                 event.preventDefault();
                 title.blur();
             }
@@ -1885,6 +1900,10 @@ function swatch(color) {
 
 function cssColor(value) {
     return String(value).replace(/[;"'<>]/g, "");
+}
+
+function isComposingEvent(event) {
+    return event.isComposing || event.keyCode === 229;
 }
 
 function getByPath(value, path) {
